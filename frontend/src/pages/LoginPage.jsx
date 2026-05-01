@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Button from '../components/ui/Button'
 
 export default function LoginPage() {
@@ -6,6 +7,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const navigate = useNavigate()
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -27,7 +29,10 @@ export default function LoginPage() {
 
       localStorage.setItem('token', result.token)
       localStorage.setItem('role', result.role)
+      localStorage.setItem('user', JSON.stringify(result.user || { email, role: result.role }))
+      console.log('LOGIN SUCCESS')
       console.log('Login success:', result)
+      navigate('/dashboard', { replace: true })
     } catch (err) {
       setError(err.message)
       console.error('Login error:', err)
