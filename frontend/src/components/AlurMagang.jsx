@@ -17,39 +17,62 @@ const steps = [
   },
   {
     title: 'Selesai',
-    items: ['Penyusunan laporan akhir', 'Sertifikat atau hasil magang'],
+    items: ['Penyusunan laporan akhir', 'Sertifikat magang'],
   },
 ]
 
 export default function AlurMagang() {
   return (
-    <section className="bg-white">
-      <div className="max-w-6xl mx-auto px-4 py-16">
+    <section className="py-16">
+      <div className="max-w-5xl mx-auto px-4 relative">
         <h2 className="text-2xl font-semibold text-gray-900">Alur Magang</h2>
-        <p className="text-gray-600 mt-2">Proses pelaksanaan magang di DPRD Banyumas secara sistematis dan terstruktur</p>
+        <p className="text-gray-600 mt-2 mb-10">Proses pelaksanaan magang di DPRD Banyumas secara sistematis dan terstruktur</p>
 
-        <div className="relative mt-8 space-y-8">
-          <div className="hidden md:block absolute left-1/2 transform -translate-x-1/2 w-[2px] bg-gray-200 h-full" />
+        <div className="hidden md:block absolute left-1/2 top-0 -translate-x-1/2 w-[2px] bg-gray-300 h-full" />
 
-          {steps.map((step, i) => (
-            <div key={step.title} className="relative flex md:items-center md:justify-between">
-              <div className={`w-full md:w-[45%] ${i % 2 === 0 ? 'md:order-1' : 'md:order-3'}`}>
-                <article className="bg-white border border-gray-200 rounded-sm p-4">
-                  <span className="inline-block bg-red-600 text-white text-xs px-2 py-1 mb-2">Step {i + 1}</span>
-                  <h3 className="text-sm font-semibold text-gray-900">{step.title}</h3>
-                  <ul className="text-sm text-gray-600 mt-1 space-y-1">
-                    {step.items.map((item) => (
-                      <li key={item}>• {item}</li>
-                    ))}
-                  </ul>
-                </article>
+        <div className="space-y-6 md:space-y-0">
+          {steps.map((step, i) => {
+            const isLeft = i % 2 === 0
+            return (
+              <div key={step.title} className="relative flex justify-between items-start mb-12">
+                <div className="hidden md:block w-[45%]">
+                  {isLeft && (
+                    <article className="w-full bg-white border border-gray-200 rounded-sm p-4 text-sm">
+                      <span className="bg-red-600 text-white text-xs px-2 py-1 inline-block mb-2">Step {i + 1}</span>
+                      <h3 className="text-sm font-semibold text-gray-900">{step.title}</h3>
+                      <ul className="text-sm text-gray-600 mt-1 space-y-1">
+                        {step.items.map((item) => <li key={item}>• {item}</li>)}
+                      </ul>
+                    </article>
+                  )}
+                </div>
+
+                <div className="hidden md:block absolute left-1/2 -translate-x-1/2 w-3 h-3 bg-red-600 rounded-full border-4 border-white shadow-sm" />
+
+                <div className="hidden md:block w-[45%]">
+                  {!isLeft && (
+                    <article className="w-full bg-white border border-gray-200 rounded-sm p-4 text-sm">
+                      <span className="bg-red-600 text-white text-xs px-2 py-1 inline-block mb-2">Step {i + 1}</span>
+                      <h3 className="text-sm font-semibold text-gray-900">{step.title}</h3>
+                      <ul className="text-sm text-gray-600 mt-1 space-y-1">
+                        {step.items.map((item) => <li key={item}>• {item}</li>)}
+                      </ul>
+                    </article>
+                  )}
+                </div>
+
+                <div className="md:hidden w-full">
+                  <article className="w-full bg-white border border-gray-200 rounded-sm p-4 text-sm">
+                    <span className="bg-red-600 text-white text-xs px-2 py-1 inline-block mb-2">Step {i + 1}</span>
+                    <h3 className="text-sm font-semibold text-gray-900">{step.title}</h3>
+                    <ul className="text-sm text-gray-600 mt-1 space-y-1">
+                      {step.items.map((item) => <li key={item}>• {item}</li>)}
+                    </ul>
+                  </article>
+                </div>
               </div>
-
-              <div className="hidden md:flex md:order-2 md:w-[10%] justify-center">
-                <span className="w-4 h-4 bg-red-600 rounded-full border-4 border-white shadow" />
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </section>
