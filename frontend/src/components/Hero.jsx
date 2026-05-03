@@ -7,7 +7,7 @@ export default function Hero() {
   // "bg-[url('/images/hero-bg.jpg')] bg-cover bg-center bg-no-repeat"
 
   return (
-    <section className={`relative h-screen w-full ${heroBackgroundClass}`}>
+    <section className={`relative h-screen mt-0 pt-0 w-full ${heroBackgroundClass}`}>
       <div className="absolute inset-0 bg-black/40 z-0" />
 
       <div className="relative z-10 h-full">

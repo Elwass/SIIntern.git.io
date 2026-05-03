@@ -4,7 +4,7 @@ import Hero from '../components/Hero'
 
 export default function LandingPage() {
   return (
-    <div className="space-y-12">
+    <div>
       <Navbar />
       <Hero />
       <div className="p-6 md:p-14 space-y-12">

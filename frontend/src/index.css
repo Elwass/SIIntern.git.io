@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 body {
+  margin: 0;
   font-family: 'Inter', sans-serif;
   @apply bg-gradient-to-br from-slate-100 via-white to-cyan-50 text-slate-800;
 }
