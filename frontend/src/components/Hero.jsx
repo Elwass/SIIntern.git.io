@@ -1,14 +1,9 @@
 import { Link } from 'react-router-dom'
 
 export default function Hero() {
-  const heroBackgroundClass =
-    "bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-700 bg-cover bg-center bg-no-repeat"
-  // Future image-ready replacement:
-  // "bg-[url('/images/hero-bg.jpg')] bg-cover bg-center bg-no-repeat"
-
   return (
-    <section className={`relative h-screen mt-0 pt-0 w-full ${heroBackgroundClass}`}>
-      <div className="absolute inset-0 bg-black/40 z-0" />
+    <section className="relative h-screen w-full m-0 p-0 bg-[url('/images/hero-bg.jpg')] bg-cover bg-center bg-no-repeat">
+      <div className="absolute inset-0 bg-black/50 z-0" />
 
       <div className="relative z-10 h-full">
         <div className="max-w-7xl mx-auto px-6 h-full flex items-center">
