@@ -40,14 +40,12 @@ const profilCards = [
 
 export default function ProfilMagang() {
   return (
-    <section className="bg-white">
-      <div className="max-w-6xl mx-auto px-4 py-12">
-        <div className="space-y-2">
-          <h2 className="text-2xl font-semibold text-gray-900">Profil Program Magang</h2>
-          <p className="text-gray-600 leading-relaxed max-w-3xl">
-            Program magang DPRD Banyumas memberikan kesempatan bagi mahasiswa untuk terlibat langsung dalam lingkungan kerja pemerintahan serta mengembangkan kemampuan teknis (hard skills) dan keterampilan profesional (soft skills) secara terstruktur melalui pendampingan mentor, pencatatan logbook harian, serta evaluasi berkala agar proses pembelajaran berjalan optimal dan sesuai kebutuhan instansi.
-          </p>
-        </div>
+    <section className="bg-white py-12">
+      <div className="max-w-6xl mx-auto px-4">
+        <h2 className="text-2xl font-semibold text-gray-900">Profil Program Magang</h2>
+        <p className="mt-3 w-full text-gray-600 leading-relaxed">
+          Program magang DPRD Banyumas memberikan kesempatan bagi mahasiswa untuk terlibat langsung dalam lingkungan kerja pemerintahan serta mengembangkan kemampuan teknis (hard skills) dan keterampilan profesional (soft skills) secara terstruktur melalui pendampingan mentor, pencatatan logbook harian, serta evaluasi berkala agar proses pembelajaran berjalan optimal dan sesuai kebutuhan instansi.
+        </p>
 
         <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {profilCards.map((card) => (
