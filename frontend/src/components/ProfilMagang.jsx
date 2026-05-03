@@ -21,10 +21,8 @@ const profilCards = [
     items: [
       'Administrasi pemerintahan',
       'Sistem informasi dan teknologi',
-      'Pengelolaan data dan dokumentasi',
       'Hukum dan kebijakan publik',
-      'Keuangan dan pengelolaan anggaran',
-      'Pelayanan publik',
+      'Keuangan dan pengelolaan anggaran, dan lain-lain',
     ],
   },
   {
