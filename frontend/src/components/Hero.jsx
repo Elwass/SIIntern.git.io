@@ -2,11 +2,11 @@ import { Link } from 'react-router-dom'
 
 export default function Hero() {
   return (
-    <section className="relative h-screen w-full m-0 p-0 bg-[url('/images/hero-bg.jpg')] bg-cover bg-center bg-no-repeat">
+    <section className="relative w-full h-[calc(100vh-64px)] bg-[url('/images/hero-bg.jpg')] bg-cover bg-center bg-no-repeat">
       <div className="absolute inset-0 bg-black/50 z-0" />
 
-      <div className="relative z-10 h-full">
-        <div className="max-w-7xl mx-auto px-6 h-full flex items-center">
+      <div className="relative z-10">
+        <div className="max-w-7xl mx-auto px-6 min-h-[calc(100vh-64px)] flex items-center">
           <div className="max-w-3xl text-white space-y-6">
             <h1 className="text-4xl md:text-6xl font-bold leading-tight">
               Sistem Informasi Magang DPRD Banyumas

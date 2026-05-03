@@ -15,7 +15,7 @@ const menuItems = [
 
 function DropdownItem({ item }) {
   return (
-    <div className="relative group h-20 flex items-center">
+    <div className="relative group h-16 flex items-center">
       <button className="relative h-full px-3 text-sm font-bold text-gray-800 transition-colors duration-200 hover:text-red-700 flex items-center gap-1">
         {item.label}
         {item.children && <ChevronDown size={16} className="transition-transform duration-200 group-hover:rotate-180" />}
@@ -41,7 +41,7 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-4 md:px-8 h-20 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
         <div>
           <h1 className="font-extrabold text-slate-900 leading-tight">SI-MAGANG DPRD</h1>
           <p className="text-xs text-slate-500">Sistem Informasi Magang</p>
