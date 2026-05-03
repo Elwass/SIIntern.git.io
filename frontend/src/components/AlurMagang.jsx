@@ -23,53 +23,66 @@ const steps = [
 
 export default function AlurMagang() {
   return (
-    <section className="py-16">
+    <section className="py-16 bg-white">
       <div className="max-w-5xl mx-auto px-4 relative">
         <h2 className="text-2xl font-semibold text-gray-900">Alur Magang</h2>
-        <p className="text-gray-600 mt-2 mb-10">Proses pelaksanaan magang di DPRD Banyumas secara sistematis dan terstruktur</p>
+        <p className="text-gray-600 mt-2">Proses pelaksanaan magang di DPRD Banyumas secara sistematis dan terstruktur</p>
 
-        <div className="hidden md:block absolute left-1/2 top-0 -translate-x-1/2 w-[2px] bg-gray-300 h-full" />
+        <div className="hidden md:block absolute left-1/2 top-24 bottom-0 w-[2px] bg-gray-300 -translate-x-1/2" />
+        <div className="md:hidden absolute left-4 top-24 bottom-0 w-[2px] bg-gray-300" />
 
-        <div className="space-y-6 md:space-y-0">
+        <div className="mt-10">
           {steps.map((step, i) => {
             const isLeft = i % 2 === 0
             return (
-              <div key={step.title} className="relative flex justify-between items-start mb-12">
-                <div className="hidden md:block w-[45%]">
+              <div key={step.title} className="relative flex items-center justify-between mb-14">
+                <div className="absolute left-4 md:left-1/2 md:-translate-x-1/2 w-4 h-4 bg-red-600 rounded-full border-4 border-white shadow-sm z-10" />
+
+                <div className="w-full pl-10 md:pl-0 md:w-[45%] md:pr-8 md:text-right">
                   {isLeft && (
-                    <article className="w-full bg-white border border-gray-200 rounded-sm p-4 text-sm">
-                      <span className="bg-red-600 text-white text-xs px-2 py-1 inline-block mb-2">Step {i + 1}</span>
-                      <h3 className="text-sm font-semibold text-gray-900">{step.title}</h3>
-                      <ul className="text-sm text-gray-600 mt-1 space-y-1">
-                        {step.items.map((item) => <li key={item}>• {item}</li>)}
-                      </ul>
-                    </article>
+                    <>
+                      <span className="inline-block bg-red-600 text-white text-xs px-3 py-1 rounded-full mb-2">Step {i + 1}</span>
+                      <div className="w-full bg-white border border-gray-200 p-4 rounded-sm shadow-sm text-sm">
+                        <h3 className="text-sm font-semibold text-gray-900">{step.title}</h3>
+                        <ul className="text-sm text-gray-600 mt-1 space-y-1 list-disc list-inside">
+                          {step.items.map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </>
                   )}
                 </div>
-
-                <div className="hidden md:block absolute left-1/2 -translate-x-1/2 w-3 h-3 bg-red-600 rounded-full border-4 border-white shadow-sm" />
 
                 <div className="hidden md:block w-[45%]">
                   {!isLeft && (
-                    <article className="w-full bg-white border border-gray-200 rounded-sm p-4 text-sm">
-                      <span className="bg-red-600 text-white text-xs px-2 py-1 inline-block mb-2">Step {i + 1}</span>
-                      <h3 className="text-sm font-semibold text-gray-900">{step.title}</h3>
-                      <ul className="text-sm text-gray-600 mt-1 space-y-1">
-                        {step.items.map((item) => <li key={item}>• {item}</li>)}
-                      </ul>
-                    </article>
+                    <div className="w-full pl-8">
+                      <span className="inline-block bg-red-600 text-white text-xs px-3 py-1 rounded-full mb-2">Step {i + 1}</span>
+                      <div className="w-full bg-white border border-gray-200 p-4 rounded-sm shadow-sm text-sm">
+                        <h3 className="text-sm font-semibold text-gray-900">{step.title}</h3>
+                        <ul className="text-sm text-gray-600 mt-1 space-y-1 list-disc list-inside">
+                          {step.items.map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
                   )}
                 </div>
 
-                <div className="md:hidden w-full">
-                  <article className="w-full bg-white border border-gray-200 rounded-sm p-4 text-sm">
-                    <span className="bg-red-600 text-white text-xs px-2 py-1 inline-block mb-2">Step {i + 1}</span>
-                    <h3 className="text-sm font-semibold text-gray-900">{step.title}</h3>
-                    <ul className="text-sm text-gray-600 mt-1 space-y-1">
-                      {step.items.map((item) => <li key={item}>• {item}</li>)}
-                    </ul>
-                  </article>
-                </div>
+                {!isLeft && (
+                  <div className="md:hidden w-full pl-10">
+                    <span className="inline-block bg-red-600 text-white text-xs px-3 py-1 rounded-full mb-2">Step {i + 1}</span>
+                    <div className="w-full bg-white border border-gray-200 p-4 rounded-sm shadow-sm text-sm">
+                      <h3 className="text-sm font-semibold text-gray-900">{step.title}</h3>
+                      <ul className="text-sm text-gray-600 mt-1 space-y-1 list-disc list-inside">
+                        {step.items.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })}
