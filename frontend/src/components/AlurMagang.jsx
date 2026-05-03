@@ -90,6 +90,7 @@ export default function AlurMagang() {
                       </ul>
                     </div>
                   </div>
+                    </div>
                 )}
               </div>
             )
