@@ -13,7 +13,6 @@ const profilCards = [
     items: [
       'Durasi menyesuaikan kebijakan kampus dan instansi asal mahasiswa',
       'Waktu/jam kegiatan mengikuti operasional instansi',
-      'Jadwal fleksibel sesuai kebutuhan dan kesepakatan',
       'Berbasis aktivitas kerja nyata di lingkungan instansi',
     ],
   },
@@ -21,8 +20,8 @@ const profilCards = [
     title: 'Bidang Kegiatan',
     items: [
       'Administrasi pemerintahan',
-      'Sistem informasi & teknologi',
-      'Pengelolaan data & dokumentasi',
+      'Sistem informasi dan teknologi',
+      'Pengelolaan data dan dokumentasi',
       'Hukum dan kebijakan publik',
       'Keuangan dan pengelolaan anggaran',
       'Pelayanan publik',
@@ -42,23 +41,26 @@ const profilCards = [
 export default function ProfilMagang() {
   return (
     <section className="bg-white">
-      <div className="max-w-7xl mx-auto px-6 py-16">
-        <div className="text-center max-w-4xl mx-auto">
+      <div className="max-w-5xl mx-auto px-6 py-16">
+        <div className="space-y-4">
           <h2 className="text-3xl font-bold text-gray-900">Profil Program Magang</h2>
-          <p className="text-gray-600 mt-2">
-            Program magang DPRD Banyumas dirancang untuk memberikan pengalaman kerja nyata secara terstruktur dan profesional bagi mahasiswa dari berbagai bidang keilmuan
+          <p className="text-gray-600 mt-3 leading-relaxed">
+            Program magang DPRD Banyumas memberikan kesempatan bagi mahasiswa untuk terlibat langsung dalam lingkungan kerja pemerintahan, serta mengembangkan kemampuan teknis (hard skills) dan keterampilan profesional (soft skills) secara terstruktur.
+          </p>
+          <p className="text-gray-600 mt-3 leading-relaxed">
+            Kegiatan magang dilaksanakan melalui pendampingan mentor, pencatatan logbook harian, serta evaluasi berkala guna memastikan proses pembelajaran berjalan optimal dan sesuai dengan kebutuhan instansi serta kompetensi yang diharapkan dari peserta.
           </p>
         </div>
 
-        <div className="mt-10 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        <div className="mt-10 grid grid-cols-1 lg:grid-cols-2 gap-6">
           {profilCards.map((card) => (
-            <article key={card.title} className="bg-white shadow-sm rounded-md p-6 border border-gray-100 hover:shadow-md transition-shadow">
+            <article key={card.title} className="bg-white shadow-sm rounded-md border border-gray-100 p-6 hover:shadow-md transition-shadow">
               <h3 className="text-lg font-semibold text-gray-900">{card.title}</h3>
-              <ul className="mt-4 space-y-2">
+              <ol className="mt-4 list-decimal pl-5 text-gray-600 space-y-1">
                 {card.items.map((item) => (
-                  <li key={item} className="text-gray-600 text-sm leading-relaxed">• {item}</li>
+                  <li key={item}>{item}</li>
                 ))}
-              </ul>
+              </ol>
             </article>
           ))}
         </div>
