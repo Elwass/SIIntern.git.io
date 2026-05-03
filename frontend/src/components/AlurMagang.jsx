@@ -45,7 +45,7 @@ export default function AlurMagang() {
   }, [])
 
   return (
-    <section className="py-12 bg-white">
+    <section className="pt-6 pb-12 bg-white">
       <div className="max-w-5xl mx-auto px-4 relative">
         <h2 className="text-2xl font-semibold text-gray-900 text-center">Alur Magang</h2>
         <p className="text-gray-600 mt-2 text-center max-w-2xl mx-auto">Proses pelaksanaan magang di DPRD Banyumas secara sistematis dan terstruktur</p>
