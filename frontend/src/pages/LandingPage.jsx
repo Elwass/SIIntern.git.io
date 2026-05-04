@@ -39,8 +39,8 @@ export default function LandingPage() {
       </section>
       <FAQSection />
       <KontakBantuanSection />
-      <FooterSection />
       </div>
+      <FooterSection />
     </div>
   )
 }
