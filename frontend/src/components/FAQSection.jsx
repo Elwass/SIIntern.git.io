@@ -31,7 +31,7 @@ export default function FAQSection() {
   }
 
   return (
-    <section className="max-w-6xl mx-auto px-4">
+    <section id="faq" className="max-w-6xl mx-auto px-4">
       <h2 className="mb-4 text-2xl font-semibold text-gray-900">FAQ Magang Berdampak</h2>
 
       <div className="rounded-2xl border border-gray-100 bg-white p-5 md:p-8 shadow-md">

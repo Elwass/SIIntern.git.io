@@ -6,6 +6,7 @@ import AlurMagang from '../components/AlurMagang'
 import SyaratKetentuan from '../components/SyaratKetentuan'
 import FAQSection from '../components/FAQSection'
 import KontakBantuanSection from '../components/KontakBantuanSection'
+import FooterSection from '../components/FooterSection'
 
 export default function LandingPage() {
   return (
@@ -17,7 +18,7 @@ export default function LandingPage() {
       <SyaratKetentuan />
       <div className="p-6 md:p-14 space-y-12">
       <section className="grid md:grid-cols-4 gap-4">{['Dashboard','Attendance','Logbook','AI Summary'].map(x => <motion.div key={x} whileHover={{ y: -3 }} className="glass rounded-2xl p-5">{x}</motion.div>)}</section>
-      <section className="max-w-6xl mx-auto px-4">
+      <section id="pendaftaran" className="max-w-6xl mx-auto px-4">
         <h2 className="mb-4 text-2xl font-semibold text-gray-900">Pendaftaran</h2>
         <div className="rounded-2xl border border-gray-100 bg-white p-6 md:p-8 shadow-md">
           <p className="text-sm leading-7 text-gray-600">
@@ -38,7 +39,7 @@ export default function LandingPage() {
       </section>
       <FAQSection />
       <KontakBantuanSection />
-      <footer className="text-center text-sm text-slate-500">© 2026 Secretariat DPRD Banyumas</footer>
+      <FooterSection />
       </div>
     </div>
   )
