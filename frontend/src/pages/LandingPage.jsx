@@ -5,6 +5,7 @@ import ProfilMagang from '../components/ProfilMagang'
 import AlurMagang from '../components/AlurMagang'
 import SyaratKetentuan from '../components/SyaratKetentuan'
 import FAQSection from '../components/FAQSection'
+import KontakBantuanSection from '../components/KontakBantuanSection'
 
 export default function LandingPage() {
   return (
@@ -36,6 +37,7 @@ export default function LandingPage() {
         </div>
       </section>
       <FAQSection />
+      <KontakBantuanSection />
       <footer className="text-center text-sm text-slate-500">© 2026 Secretariat DPRD Banyumas</footer>
       </div>
     </div>
