@@ -63,7 +63,7 @@ export default function Navbar() {
   }, [])
 
   return (
-    <header className={`fixed top-0 left-0 z-50 w-full bg-white border-b-2 border-red-600 transition-transform duration-300 ease-in-out ${isVisible ? 'translate-y-0' : '-translate-y-full'} ${isScrolledState ? 'shadow-sm' : ''}`}>
+    <header className={`fixed top-0 left-0 z-50 w-full bg-white border-b border-red-600 transition-transform duration-300 ease-in-out ${isVisible ? 'translate-y-0' : '-translate-y-full'} ${isScrolledState ? 'shadow-sm' : ''}`}>
       <div className="w-full px-10 xl:px-16 py-4 min-h-[88px] md:min-h-[96px] flex items-center justify-between">
         <div className="flex items-center gap-3 md:gap-4">
           <img src="/images/dprd-logo.webp" alt="Logo DPRD Kab. Banyumas" className="h-12 w-auto object-contain md:h-14" />

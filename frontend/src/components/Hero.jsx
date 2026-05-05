@@ -10,11 +10,11 @@ export default function Hero() {
             <h1 className="mb-4 text-4xl font-bold leading-tight md:text-6xl">
               Sistem Informasi Magang DPRD Banyumas
             </h1>
-            <p className="mb-8 text-base md:text-lg text-slate-100">
+            <p className="mb-6 text-base md:text-lg text-slate-100">
               Platform digital untuk monitoring, evaluasi, dan pengelolaan kegiatan magang secara terintegrasi
             </p>
 
-            <div className="mt-8 flex flex-wrap items-center gap-4">
+            <div className="flex flex-wrap items-center gap-4">
               <Link
                 to="/login"
                 className="px-6 py-3 bg-red-700 hover:bg-red-800 text-white font-semibold transition-colors"
