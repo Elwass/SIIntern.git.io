@@ -14,7 +14,7 @@ const menuItems = [
 ]
 
 const navUnderlineBase =
-  'relative h-full px-3 text-sm font-bold flex items-center transition-colors duration-200 after:absolute after:left-0 after:bottom-0 after:h-[2px] after:w-0 after:bg-red-600 after:transition-all after:duration-200'
+  "relative h-full px-3 text-sm font-bold flex items-center transition-colors duration-200 after:content-[''] after:absolute after:left-0 after:bottom-0 after:h-[2px] after:w-0 after:bg-red-600 after:transition-all after:duration-200"
 
 function DropdownItem({ item }) {
   return (
@@ -77,7 +77,7 @@ export default function Navbar() {
         isVisible ? 'translate-y-0' : '-translate-y-full'
       } ${isScrolledState ? 'shadow-sm' : ''}`}
     >
-      <div className="flex min-h-[88px] w-full items-center justify-between px-10 py-4 xl:px-16 md:min-h-[96px]">
+      <div className="flex min-h-[84px] w-full items-center justify-between px-10 py-3 xl:px-16 md:min-h-[92px] md:py-4">
         <div className="flex items-center gap-3 md:gap-4">
           <img
             src="/images/dprd-logo.webp"
