@@ -50,7 +50,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-slate-50">
       <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
         <div className="flex items-center justify-center px-6 py-10 md:px-10 lg:px-16">
-          <div className="w-full max-w-md rounded-2xl border border-gray-100 bg-white p-8 shadow-xl shadow-gray-200/60">
+          <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-2xl shadow-gray-200/50">
             <h1 className="text-2xl font-bold tracking-wide text-gray-900">WELCOME BACK</h1>
             <p className="mt-2 text-sm text-gray-600">Welcome back! Please enter your details.</p>
 
