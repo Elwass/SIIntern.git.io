@@ -41,10 +41,13 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
-        <div>
-          <h1 className="font-extrabold text-slate-900 leading-tight">SI-MAGANG DPRD</h1>
-          <p className="text-xs text-slate-500">Sistem Informasi Magang</p>
+      <div className="max-w-7xl mx-auto px-6 py-4 md:py-5 min-h-[88px] md:min-h-[104px] flex items-center justify-between">
+        <div className="flex items-center gap-3 md:gap-4">
+          <img src="/images/dprd-logo.webp" alt="Logo DPRD Kab. Banyumas" className="h-12 w-auto object-contain md:h-14" />
+          <div>
+            <h1 className="font-extrabold text-slate-900 leading-tight">DPRD Kabupaten Banyumas</h1>
+            <p className="text-xs text-slate-500">Sistem Informasi Magang Berdampak</p>
+          </div>
         </div>
 
         <nav className="hidden lg:flex items-center h-full gap-1">
