@@ -90,7 +90,7 @@ export default function Navbar() {
           </div>
         </div>
 
-        <nav className="hidden h-full items-center gap-1 lg:flex">
+        <nav className="hidden self-stretch items-stretch gap-1 lg:flex">
           {menuItems.map((item) =>
             item.to ? (
               <NavLink
