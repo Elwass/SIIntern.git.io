@@ -16,7 +16,7 @@ const menuItems = [
 function DropdownItem({ item }) {
   return (
     <div className="relative group h-16 flex items-center">
-      <button className="relative h-full px-3 text-sm font-bold text-gray-800 transition-colors duration-200 hover:text-red-700 flex items-center gap-1 after:absolute after:left-0 after:bottom-0 after:h-[3px] after:w-0 after:bg-red-600 after:transition-all after:duration-200 group-hover:after:w-full">
+      <button className="relative h-full px-3 text-sm font-bold text-gray-800 transition-colors duration-200 hover:text-red-700 flex items-center gap-1 after:absolute after:left-0 after:bottom-0 after:h-[2px] after:w-0 after:bg-red-600 after:transition-all after:duration-200 group-hover:after:w-full">
         {item.label}
         {item.children && <ChevronDown size={16} className="transition-transform duration-200 group-hover:rotate-180" />}
       </button>
@@ -76,7 +76,7 @@ export default function Navbar() {
         <nav className="hidden lg:flex items-center h-full gap-1">
           {menuItems.map((item) =>
             item.to ? (
-              <NavLink key={item.label} to={item.to} className={({ isActive }) => `group relative h-full px-3 text-sm font-bold flex items-center transition-colors duration-200 after:absolute after:left-0 after:bottom-0 after:h-[3px] after:bg-red-600 after:transition-all after:duration-200 ${isActive ? 'text-red-600 font-semibold after:w-full' : 'text-gray-800 hover:text-red-700 after:w-0 group-hover:after:w-full'}`}>
+              <NavLink key={item.label} to={item.to} className={({ isActive }) => `group relative h-full px-3 text-sm font-bold flex items-center transition-colors duration-200 after:absolute after:left-0 after:bottom-0 after:h-[2px] after:bg-red-600 after:w-0 after:transition-all after:duration-200 ${isActive ? 'text-red-600 font-semibold after:w-full' : 'text-gray-800 hover:text-red-700 group-hover:after:w-full'}`}>
                 {() => (
                   <>
                     {item.label}
