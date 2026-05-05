@@ -26,7 +26,7 @@ function DropdownItem({ item }) {
         <div className="absolute left-0 top-full opacity-0 -translate-y-1 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all duration-150">
           <div className="min-w-52 bg-white rounded-none shadow-md p-2 space-y-1">
             {item.children.map((child) => (
-              <button key={child} className="relative w-full text-left px-3 py-2 text-sm text-gray-800 transition-colors duration-200 hover:bg-red-50 hover:text-red-700 after:absolute after:left-0 after:bottom-0 after:h-[2px] after:w-0 after:bg-red-600 after:transition-all after:duration-200 hover:after:w-full">
+              <button key={child} className="w-full text-left px-3 py-2 text-sm text-gray-800 transition-colors duration-200 hover:text-red-600">
                 {child}
               </button>
             ))}
