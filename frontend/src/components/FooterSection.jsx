@@ -1,18 +1,18 @@
 export default function FooterSection() {
   return (
     <footer className="mt-12 w-full border-t border-gray-200 bg-gray-50">
-      <div className="mx-auto max-w-6xl px-4 py-10 md:py-12">
-        <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1.4fr_0.9fr]">
-          <div>
-            <div className="flex items-center gap-3">
-              <img src="/images/dprd-logo.webp" alt="Logo DPRD Kab. Banyumas" className="h-12 w-auto object-contain" />
-              <h3 className="text-lg font-semibold text-gray-900">DPRD Kabupaten Banyumas</h3>
-            </div>
-            <p className="mt-4 max-w-[320px] text-sm leading-7 text-gray-600">
-              Platform informasi dan pendaftaran Magang Berdampak DPRD Kabupaten Banyumas.
-            </p>
+      <div className="mx-auto max-w-6xl px-4 py-12 md:py-14">
+        <div>
+          <div className="flex items-center gap-3">
+            <img src="/images/dprd-logo.webp" alt="Logo DPRD Kab. Banyumas" className="h-12 w-auto object-contain" />
+            <h3 className="text-lg font-semibold text-gray-900">DPRD Kabupaten Banyumas</h3>
           </div>
+          <p className="mt-4 max-w-[320px] text-sm leading-7 text-gray-600">
+            Platform informasi dan pendaftaran Magang Berdampak DPRD Kabupaten Banyumas.
+          </p>
+        </div>
 
+        <div className="mt-10 grid grid-cols-1 gap-10 md:grid-cols-3">
           <div>
             <h4 className="mb-4 text-sm font-semibold text-gray-900">Kontak</h4>
             <ul className="space-y-2 text-sm text-gray-600">
