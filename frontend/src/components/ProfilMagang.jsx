@@ -40,7 +40,7 @@ const profilCards = [
 
 export default function ProfilMagang() {
   return (
-    <section className="bg-white pt-12 pb-6">
+    <section id="profil-magang" className="bg-white pt-12 pb-6">
       <div className="max-w-6xl mx-auto px-4">
         <h2 className="text-2xl font-semibold text-gray-900">Profil Program Magang</h2>
         <p className="mt-3 w-full text-gray-600 leading-relaxed">
