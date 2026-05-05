@@ -47,10 +47,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-slate-50">
       <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
         <div className="flex items-center justify-center px-6 py-10 md:px-10 lg:px-16">
-          <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
+          <div className="w-full max-w-md rounded-2xl border border-gray-100 bg-white p-8 shadow-xl shadow-gray-200/60">
             <h1 className="text-2xl font-bold tracking-wide text-gray-900">WELCOME BACK</h1>
             <p className="mt-2 text-sm text-gray-600">Welcome back! Please enter your details.</p>
 
@@ -118,8 +118,11 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="hidden lg:block">
+        <div className="relative hidden overflow-hidden lg:block lg:rounded-l-[2rem] lg:shadow-xl lg:shadow-gray-300/40">
           <div className="h-full w-full bg-[url('/images/login-bg.jpeg')] bg-cover bg-center" />
+          <div className="absolute inset-0 bg-black/25" />
+          <div className="absolute inset-0 bg-gradient-to-r from-gray-50 via-white/35 to-transparent" />
+          <div className="pointer-events-none absolute left-0 top-0 h-full w-20 bg-gradient-to-r from-white/75 to-transparent" />
         </div>
       </div>
     </div>
