@@ -5,7 +5,7 @@ export default function FooterSection() {
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <div className="flex items-center gap-3">
-              <img src="/dprd-logo.webp" alt="Logo DPRD Kab. Banyumas" className="h-12 w-auto object-contain" />
+              <img src="/images/dprd-logo.webp" alt="Logo DPRD Kab. Banyumas" className="h-10 w-auto object-contain" />
               <h3 className="text-lg font-semibold text-gray-900">DPRD Kab. Banyumas</h3>
             </div>
             <p className="mt-4 max-w-md text-sm leading-7 text-gray-600">

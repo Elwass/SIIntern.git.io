@@ -43,7 +43,7 @@ export default function Navbar() {
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <img src="/dprd-logo.webp" alt="Logo DPRD Kab. Banyumas" className="h-9 w-auto object-contain" />
+          <img src="/images/dprd-logo.webp" alt="Logo DPRD Kab. Banyumas" className="h-10 w-auto object-contain" />
           <div>
             <h1 className="font-extrabold text-slate-900 leading-tight">SI-MAGANG DPRD</h1>
             <p className="text-xs text-slate-500">Sistem Informasi Magang</p>
