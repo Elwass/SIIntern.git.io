@@ -14,7 +14,7 @@ const menuItems = [
 ]
 
 const navUnderlineBase =
-  'relative h-full px-3 text-sm font-bold flex items-center transition-colors duration-200 after:absolute after:left-0 after:bottom-0 after:h-[2px] after:w-0 after:bg-red-600 after:transition-all after:duration-200'
+  "relative h-full px-3 text-sm font-bold flex items-center transition-colors duration-200 after:content-[''] after:absolute after:left-0 after:bottom-0 after:h-[2px] after:w-0 after:bg-red-600 after:transition-all after:duration-200"
 
 function DropdownItem({ item }) {
   return (
