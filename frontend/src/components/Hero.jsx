@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 export default function Hero() {
   return (
     <section className="relative min-h-[calc(100vh-96px)] bg-[url('/images/hero-bg.jpg')] bg-cover bg-center bg-no-repeat">
-      <div className="absolute inset-0 bg-black/45 z-0" />
+      <div className="absolute inset-0 bg-black/40 z-0" />
 
       <div className="relative z-10 flex min-h-[calc(100vh-96px)] items-center w-full px-10 xl:px-16">
         <div className="max-w-4xl text-white">
