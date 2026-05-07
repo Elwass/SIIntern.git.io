@@ -62,30 +62,29 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="grid min-h-screen lg:grid-cols-2">
-
+    <div className="min-h-screen bg-[#f5f5f5] px-4 py-8">
+      <div className="mx-auto grid min-h-[90vh] max-w-7xl overflow-hidden rounded-[2rem] bg-white shadow-2xl lg:grid-cols-2">
+        
         {/* Left Section */}
-        <div className="flex items-center justify-center px-6 py-10 sm:px-10 lg:px-20">
+        <div className="flex items-center justify-center px-6 py-10 sm:px-10 lg:px-16">
           <div className="w-full max-w-md">
-
-            <div className="mb-10">
-              <h1 className="text-5xl font-bold tracking-tight text-gray-900">
+            <div className="mb-8">
+              <h1 className="text-4xl font-bold tracking-tight text-gray-900">
                 WELCOME BACK
               </h1>
 
-              <p className="mt-4 text-sm text-gray-500">
+              <p className="mt-3 text-sm text-gray-500">
                 Welcome back! Please enter your details.
               </p>
             </div>
 
             <form onSubmit={handleLogin} className="space-y-5">
-
+              
               {/* Email */}
               <div>
                 <label
                   htmlFor="email"
-                  className="mb-2 block text-sm font-medium text-gray-700"
+                  className="mb-1 block text-sm font-medium text-gray-700"
                 >
                   Email
                 </label>
@@ -96,8 +95,8 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
                   placeholder="Enter your email"
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition-all focus:border-red-500 focus:ring-4 focus:ring-red-500/10"
                 />
               </div>
 
@@ -105,7 +104,7 @@ export default function LoginPage() {
               <div>
                 <label
                   htmlFor="password"
-                  className="mb-2 block text-sm font-medium text-gray-700"
+                  className="mb-1 block text-sm font-medium text-gray-700"
                 >
                   Password
                 </label>
@@ -116,12 +115,12 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
                   placeholder="Enter your password"
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition-all focus:border-red-500 focus:ring-4 focus:ring-red-500/10"
                 />
               </div>
 
-              {/* Remember Me */}
+              {/* Remember & Forgot */}
               <div className="flex items-center justify-between text-sm">
                 <label className="flex items-center gap-2 text-gray-600">
                   <input
@@ -130,13 +129,12 @@ export default function LoginPage() {
                     onChange={(e) => setRememberMe(e.target.checked)}
                     className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
                   />
-
                   Remember me
                 </label>
 
                 <a
                   href="#"
-                  className="font-medium text-gray-600 transition hover:text-red-600"
+                  className="font-medium text-gray-600 hover:text-red-600"
                 >
                   Forgot password?
                 </a>
@@ -149,11 +147,11 @@ export default function LoginPage() {
                 </div>
               )}
 
-              {/* Sign In */}
+              {/* Login Button */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
+                className="w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {loading ? 'Signing in...' : 'Sign In'}
               </button>
@@ -161,14 +159,14 @@ export default function LoginPage() {
               {/* Google Login */}
               <button
                 type="button"
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 transition-all hover:bg-gray-50"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
               >
                 <span className="text-base font-bold">G</span>
                 Sign in with Google
               </button>
 
               {/* Register */}
-              <p className="pt-3 text-center text-sm text-gray-600">
+              <p className="pt-2 text-center text-sm text-gray-600">
                 Don&apos;t have an account?{' '}
                 <Link
                   to="/register"
@@ -177,26 +175,23 @@ export default function LoginPage() {
                   Sign up
                 </Link>
               </p>
-
             </form>
           </div>
         </div>
 
         {/* Right Section */}
-        <div className="relative hidden lg:block overflow-hidden">
+        <div className="relative hidden lg:block">
+          <div className="absolute inset-0">
+            <img
+              src="/images/login-bg.jpeg"
+              alt="Login Background"
+              className="h-full w-full object-cover"
+            />
+          </div>
 
-          <img
-            src="/images/login-bg.jpeg"
-            alt="Login Background"
-            className="h-full w-full object-cover"
-          />
-
-          {/* Overlay */}
           <div className="absolute inset-0 bg-black/20" />
 
-          {/* Gradient */}
-          <div className="absolute inset-0 bg-gradient-to-r from-white/20 via-transparent to-transparent" />
-
+          <div className="absolute inset-0 bg-gradient-to-r from-white/50 via-transparent to-transparent" />
         </div>
       </div>
     </div>
