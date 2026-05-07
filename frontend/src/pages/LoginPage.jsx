@@ -1,12 +1,19 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import Button from '../components/ui/Button'
+import { Link, useNavigate } from 'react-router-dom'
+
+const roleRedirectMap = {
+  admin: '/admin',
+  mentor: '/mentor',
+  student: '/student',
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
   const navigate = useNavigate()
 
   const handleLogin = async (e) => {
@@ -15,57 +22,178 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/login', {
+      const response = await fetch('/api/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          rememberMe,
+        }),
       })
 
       const result = await response.json()
 
       if (!response.ok) {
-        throw new Error(result.message || 'Login failed')
+        throw new Error(
+          result.message || 'Login failed. Please check your credentials.'
+        )
       }
 
       localStorage.setItem('token', result.token)
       localStorage.setItem('role', result.role)
-      localStorage.setItem('user', JSON.stringify(result.user || { email, role: result.role }))
-      console.log('LOGIN SUCCESS')
-      console.log('Login success:', result)
-      navigate('/dashboard', { replace: true })
+
+      localStorage.setItem(
+        'user',
+        JSON.stringify(result.user || { email, role: result.role })
+      )
+
+      const redirectPath =
+        roleRedirectMap[result.role?.toLowerCase()] || '/student'
+
+      navigate(redirectPath, { replace: true })
     } catch (err) {
-      setError(err.message)
-      console.error('Login error:', err)
+      setError(err.message || 'Something went wrong. Please try again.')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen grid place-items-center p-4">
-      <form onSubmit={handleLogin} className="glass rounded-2xl w-full max-w-md p-8 space-y-4">
-        <h2 className="text-2xl font-bold">Sign In</h2>
-        <input
-          className="w-full rounded-xl p-3 bg-white/80 border"
-          placeholder="Email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <input
-          className="w-full rounded-xl p-3 bg-white/80 border"
-          placeholder="Password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <Button className="w-full" type="submit" disabled={loading}>
-          {loading ? 'Logging in...' : 'Login'}
-        </Button>
-      </form>
+    <div className="min-h-screen bg-[#f5f5f5] px-4 py-8">
+      <div className="mx-auto grid min-h-[90vh] max-w-7xl overflow-hidden rounded-[2rem] bg-white shadow-2xl lg:grid-cols-2">
+        
+        {/* Left Section */}
+        <div className="flex items-center justify-center px-6 py-10 sm:px-10 lg:px-16">
+          <div className="w-full max-w-md">
+            <div className="mb-8">
+              <h1 className="text-4xl font-bold tracking-tight text-gray-900">
+                WELCOME BACK
+              </h1>
+
+              <p className="mt-3 text-sm text-gray-500">
+                Welcome back! Please enter your details.
+              </p>
+            </div>
+
+            <form onSubmit={handleLogin} className="space-y-5">
+              
+              {/* Email */}
+              <div>
+                <label
+                  htmlFor="email"
+                  className="mb-1 block text-sm font-medium text-gray-700"
+                >
+                  Email
+                </label>
+
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
+                  placeholder="Enter your email"
+                />
+              </div>
+
+              {/* Password */}
+              <div>
+                <label
+                  htmlFor="password"
+                  className="mb-1 block text-sm font-medium text-gray-700"
+                >
+                  Password
+                </label>
+
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
+                  placeholder="Enter your password"
+                />
+              </div>
+
+              {/* Remember & Forgot */}
+              <div className="flex items-center justify-between text-sm">
+                <label className="flex items-center gap-2 text-gray-600">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                  />
+                  Remember me
+                </label>
+
+                <a
+                  href="#"
+                  className="font-medium text-gray-600 hover:text-red-600"
+                >
+                  Forgot password?
+                </a>
+              </div>
+
+              {/* Error */}
+              {error && (
+                <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+                  {error}
+                </div>
+              )}
+
+              {/* Login Button */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {loading ? 'Signing in...' : 'Sign In'}
+              </button>
+
+              {/* Google Login */}
+              <button
+                type="button"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+              >
+                <span className="text-base font-bold">G</span>
+                Sign in with Google
+              </button>
+
+              {/* Register */}
+              <p className="pt-2 text-center text-sm text-gray-600">
+                Don&apos;t have an account?{' '}
+                <Link
+                  to="/register"
+                  className="font-semibold text-red-600 hover:underline"
+                >
+                  Sign up
+                </Link>
+              </p>
+            </form>
+          </div>
+        </div>
+
+        {/* Right Section */}
+        <div className="relative hidden lg:block">
+          <div className="absolute inset-0">
+            <img
+              src="/images/login-bg.jpeg"
+              alt="Login Background"
+              className="h-full w-full object-cover"
+            />
+          </div>
+
+          <div className="absolute inset-0 bg-black/20" />
+
+          <div className="absolute inset-0 bg-gradient-to-r from-white/50 via-transparent to-transparent" />
+        </div>
+      </div>
     </div>
   )
 }
