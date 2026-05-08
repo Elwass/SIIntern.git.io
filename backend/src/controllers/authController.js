@@ -74,7 +74,7 @@ export const register = async (req, res) => {
     name: normalizedName,
     email: normalizedEmail,
     passwordHash: await bcrypt.hash(password, 10),
-    role: 'Student',
+    role: 'student',
   }
 
   users.push(newUser)

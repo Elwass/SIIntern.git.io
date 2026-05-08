@@ -9,7 +9,7 @@ export default function ResetPasswordPage() {
           <h1 className="mt-3 text-3xl font-bold text-gray-900">Fitur reset password sedang disiapkan</h1>
           <p className="mt-4 text-sm leading-6 text-gray-600">
             TODO: hubungkan halaman ini ke endpoint reset password backend setelah email service dan token reset tersedia.
-            Untuk sementara, hubungi admin SIIntern DPRD Banyumas untuk bantuan pemulihan akun.
+            Untuk sementara, hubungi admin Sistem Informasi Magang DPRD Banyumas untuk bantuan pemulihan akun.
           </p>
           <Link
             to="/login"

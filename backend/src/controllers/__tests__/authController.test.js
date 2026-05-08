@@ -23,7 +23,7 @@ test('login success issues token and public user payload', async () => {
 
   assert.equal(res.statusCode, 200)
   assert.equal(typeof res.payload.token, 'string')
-  assert.equal(res.payload.role, 'Student')
+  assert.equal(res.payload.role, 'student')
   assert.equal(res.payload.user.email, 'student@dprd.go.id')
   assert.equal(res.payload.user.password, undefined)
 })
@@ -40,11 +40,11 @@ test('register success creates student and returns usable token', async () => {
   const email = `new-${Date.now()}@example.com`
   const res = createResponse()
 
-  await register({ body: { name: 'New Student', email, password: 'secret123' } }, res)
+  await register({ body: { name: 'Mahasiswa Baru', email, password: 'secret123' } }, res)
 
   assert.equal(res.statusCode, 201)
   assert.equal(typeof res.payload.token, 'string')
-  assert.equal(res.payload.role, 'Student')
-  assert.equal(res.payload.user.name, 'New Student')
+  assert.equal(res.payload.role, 'student')
+  assert.equal(res.payload.user.name, 'Mahasiswa Baru')
   assert.equal(res.payload.user.email, email)
 })

@@ -76,7 +76,7 @@ export default function RegisterPage() {
                 CREATE ACCOUNT
               </h1>
               <p className="mt-3 text-sm text-gray-500">
-                Daftar akun SIIntern untuk memulai proses magang DPRD Banyumas.
+                Daftar akun Sistem Informasi Magang untuk memulai proses magang DPRD Banyumas.
               </p>
             </div>
 

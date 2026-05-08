@@ -1,10 +1,17 @@
 import { Router } from 'express'
 import { authMiddleware } from '../middleware/auth.js'
-import { dashboardData } from '../data/dummyData.js'
+import { __testing as studentController } from '../controllers/studentController.js'
 
 const router = Router()
 router.get('/summary', authMiddleware, (req, res) => {
-  res.json({ ...dashboardData, role: req.user.role })
+  if (req.user.role === 'student') {
+    return res.json(studentController.buildDashboard(req.user.id))
+  }
+
+  return res.json({
+    role: req.user.role,
+    message: 'Dashboard ringkas tersedia sesuai peran pengguna.',
+  })
 })
 
 export default router
