@@ -1,7 +1,7 @@
 export const users = [
-  { id: 1, email: 'admin@dprd.go.id', password: 'admin123', role: 'Admin' },
-  { id: 2, email: 'mentor@dprd.go.id', password: 'mentor123', role: 'Mentor' },
-  { id: 3, email: 'student@dprd.go.id', password: 'student123', role: 'Student' },
+  { id: 1, name: 'Admin DPRD', email: 'admin@dprd.go.id', password: 'admin123', role: 'Admin' },
+  { id: 2, name: 'Mentor DPRD', email: 'mentor@dprd.go.id', password: 'mentor123', role: 'Mentor' },
+  { id: 3, name: 'Student Demo', email: 'student@dprd.go.id', password: 'student123', role: 'Student' },
 ]
 
 export const dashboardData = {
