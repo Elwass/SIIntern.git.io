@@ -1,64 +1,65 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-
-const roleRedirectMap = {
-  admin: '/admin',
-  mentor: '/mentor',
-  student: '/student',
-}
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import {
+  getDashboardPath,
+  loginUser,
+  persistSession,
+  validateLoginForm,
+} from '../services/auth'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [rememberMe, setRememberMe] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState({})
   const [error, setError] = useState('')
+  const [googleMessage, setGoogleMessage] = useState('')
   const [loading, setLoading] = useState(false)
 
   const navigate = useNavigate()
+  const location = useLocation()
 
   const handleLogin = async (e) => {
     e.preventDefault()
     setError('')
+    setGoogleMessage('')
+
+    const errors = validateLoginForm({ email, password })
+    setFieldErrors(errors)
+
+    if (Object.keys(errors).length > 0) return
+
     setLoading(true)
 
     try {
-      const response = await fetch('/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          password,
-          rememberMe,
-        }),
+      const result = await loginUser({
+        email: email.trim(),
+        password,
       })
 
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(
-          result.message || 'Login failed. Please check your credentials.'
-        )
-      }
-
-      localStorage.setItem('token', result.token)
-      localStorage.setItem('role', result.role)
-
-      localStorage.setItem(
-        'user',
-        JSON.stringify(result.user || { email, role: result.role })
+      persistSession(
+        {
+          token: result.token,
+          role: result.role,
+          user: result.user,
+        },
+        rememberMe,
       )
 
-      const redirectPath =
-        roleRedirectMap[result.role?.toLowerCase()] || '/student'
-
+      const redirectPath = location.state?.from?.pathname || getDashboardPath(result.role)
       navigate(redirectPath, { replace: true })
     } catch (err) {
-      setError(err.message || 'Something went wrong. Please try again.')
+      setError(err.message || 'Login gagal. Silakan coba lagi.')
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleGoogleSignIn = () => {
+    setError('')
+    setGoogleMessage(
+      'Google Sign In belum aktif karena konfigurasi OAuth/backend belum tersedia. TODO: tambahkan endpoint OAuth dan client ID Google.',
+    )
   }
 
   return (
@@ -78,7 +79,7 @@ export default function LoginPage() {
               </p>
             </div>
 
-            <form onSubmit={handleLogin} className="space-y-5">
+            <form onSubmit={handleLogin} className="space-y-5" noValidate>
               
               {/* Email */}
               <div>
@@ -94,10 +95,12 @@ export default function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  required
                   className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
                   placeholder="Enter your email"
+                  aria-invalid={Boolean(fieldErrors.email)}
+                  aria-describedby={fieldErrors.email ? 'email-error' : undefined}
                 />
+                {fieldErrors.email && <p id="email-error" className="mt-1 text-xs text-red-600">{fieldErrors.email}</p>}
               </div>
 
               {/* Password */}
@@ -114,10 +117,12 @@ export default function LoginPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  required
                   className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
                   placeholder="Enter your password"
+                  aria-invalid={Boolean(fieldErrors.password)}
+                  aria-describedby={fieldErrors.password ? 'password-error' : undefined}
                 />
+                {fieldErrors.password && <p id="password-error" className="mt-1 text-xs text-red-600">{fieldErrors.password}</p>}
               </div>
 
               {/* Remember & Forgot */}
@@ -132,18 +137,30 @@ export default function LoginPage() {
                   Remember me
                 </label>
 
-                <a
-                  href="#"
+                <Link
+                  to="/reset-password"
                   className="font-medium text-gray-600 hover:text-red-600"
                 >
                   Forgot password?
-                </a>
+                </Link>
               </div>
 
               {/* Error */}
+              {location.state?.message && !error && (
+                <div className="rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">
+                  {location.state.message}
+                </div>
+              )}
+
               {error && (
-                <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+                <div role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
                   {error}
+                </div>
+              )}
+
+              {googleMessage && (
+                <div role="status" className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                  {googleMessage}
                 </div>
               )}
 
@@ -159,6 +176,7 @@ export default function LoginPage() {
               {/* Google Login */}
               <button
                 type="button"
+                onClick={handleGoogleSignIn}
                 className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
               >
                 <span className="text-base font-bold">G</span>
