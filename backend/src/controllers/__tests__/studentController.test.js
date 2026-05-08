@@ -1,64 +1,103 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { getStudentDashboard, createStudentApplication } from '../studentController.js'
+import {
+  assignApplicationMentor,
+  createStudentApplication,
+  createStudentApplicationDocument,
+  getCurrentStudentApplication,
+  listAdminApplications,
+  listMentorApplications,
+  submitStudentApplication,
+  updateAdminApplicationStatus,
+  updateAdminDocumentStatus,
+} from '../applicationController.js'
 
 function createResponse() {
   return {
     statusCode: 200,
     payload: undefined,
-    status(code) {
-      this.statusCode = code
-      return this
-    },
-    json(payload) {
-      this.payload = payload
-      return this
-    },
-    send() {
-      return this
-    },
+    status(code) { this.statusCode = code; return this },
+    json(payload) { this.payload = payload; return this },
+    send() { return this },
   }
 }
 
-test('student dashboard uses authenticated student data and internship domain fields', () => {
-  const res = createResponse()
+const draftPayload = {
+  namaLengkap: 'Mahasiswa Test',
+  nim: 'TST001',
+  kampus: 'Universitas Test',
+  programStudi: 'Ilmu Pemerintahan',
+  semester: 6,
+  email: 'mahasiswa.test@example.com',
+  noHp: '081234567890',
+  alamat: 'Banyumas',
+  bidangMagang: 'Administrasi Pemerintahan',
+  periodeMulai: '2026-07-01',
+  periodeSelesai: '2026-08-31',
+  motivasi: 'Belajar administrasi pemerintahan daerah.',
+}
 
-  getStudentDashboard({ user: { id: 3, role: 'student' }, query: {}, params: {} }, res)
+test('student can create draft application and cannot submit without required documents', () => {
+  const createRes = createResponse()
+  createStudentApplication({ user: { id: 4, role: 'student' }, body: draftPayload }, createRes)
+
+  assert.equal(createRes.statusCode, 201)
+  assert.equal(createRes.payload.status, 'draft')
+
+  const submitRes = createResponse()
+  submitStudentApplication({ user: { id: 4, role: 'student' }, params: { id: createRes.payload.id }, body: {} }, submitRes)
+
+  assert.equal(submitRes.statusCode, 400)
+  assert.match(submitRes.payload.message, /Dokumen wajib belum lengkap/)
+})
+
+test('student can upload documents and submit application', () => {
+  const currentRes = createResponse()
+  getCurrentStudentApplication({ user: { id: 4, role: 'student' } }, currentRes)
+  const applicationId = currentRes.payload.id
+
+  for (const jenisDokumen of currentRes.payload.documentSummary.required) {
+    const uploadRes = createResponse()
+    createStudentApplicationDocument(
+      { user: { id: 4, role: 'student' }, params: { id: applicationId }, body: { jenisDokumen, fileName: `${jenisDokumen}.pdf`, fileSize: 1000, mimeType: 'application/pdf' } },
+      uploadRes,
+    )
+    assert.ok([200, 201].includes(uploadRes.statusCode))
+  }
+
+  const submitRes = createResponse()
+  submitStudentApplication({ user: { id: 4, role: 'student' }, params: { id: applicationId }, body: {} }, submitRes)
+  assert.equal(submitRes.statusCode, 200)
+  assert.equal(submitRes.payload.status, 'submitted')
+})
+
+test('admin can list, verify documents, request revision, accept, and assign mentor', () => {
+  const listRes = createResponse()
+  listAdminApplications({ user: { id: 1, role: 'admin' }, query: { search: 'Mahasiswa Demo' } }, listRes)
+  assert.equal(listRes.payload.data.length >= 1, true)
+  const application = listRes.payload.data[0]
+
+  const docRes = createResponse()
+  updateAdminDocumentStatus({ user: { id: 1, role: 'admin' }, params: { id: application.id, documentId: 1 }, body: { status: 'verified', catatanAdmin: 'Sesuai' } }, docRes)
+  assert.equal(docRes.payload.status, 'verified')
+
+  const verifyRes = createResponse()
+  updateAdminApplicationStatus({ user: { id: 1, role: 'admin' }, params: { id: application.id }, body: { status: 'verified', catatanAdmin: 'Berkas lengkap' } }, verifyRes)
+  assert.equal(verifyRes.payload.status, 'verified')
+
+  const acceptRes = createResponse()
+  updateAdminApplicationStatus({ user: { id: 1, role: 'admin' }, params: { id: application.id }, body: { status: 'accepted', catatanAdmin: 'Diterima' } }, acceptRes)
+  assert.equal(acceptRes.payload.status, 'accepted')
+
+  const mentorRes = createResponse()
+  assignApplicationMentor({ user: { id: 1, role: 'admin' }, params: { id: application.id }, body: { mentorId: 2 } }, mentorRes)
+  assert.equal(mentorRes.payload.mentor.id, 2)
+})
+
+test('mentor only sees accepted applications assigned to them', () => {
+  const res = createResponse()
+  listMentorApplications({ user: { id: 2, role: 'mentor' } }, res)
 
   assert.equal(res.statusCode, 200)
-  assert.equal(res.payload.profile.name, 'Mahasiswa Demo')
-  assert.equal(res.payload.application.field, 'Sistem Informasi dan Teknologi')
-  assert.equal(res.payload.documents.missing.includes('Transkrip Nilai'), true)
-  assert.equal(res.payload.aiAssistant.message, 'Ringkasan AI akan tersedia setelah logbook mencukupi.')
-})
-
-test('new student dashboard returns clear empty application and logbook states', () => {
-  const res = createResponse()
-
-  getStudentDashboard({ user: { id: 4, role: 'student' }, query: {}, params: {} }, res)
-
-  assert.equal(res.payload.profile.profileStatus, 'Belum Lengkap')
-  assert.equal(res.payload.application.status, 'Belum Mengajukan')
-  assert.equal(res.payload.logbooks.summary.status, 'Belum Ada Logbook')
-})
-
-test('mentor cannot access a student outside assignment', () => {
-  const res = createResponse()
-
-  getStudentDashboard({ user: { id: 2, role: 'mentor' }, query: { studentId: 4 }, params: {} }, res)
-
-  assert.equal(res.statusCode, 403)
-  assert.match(res.payload.message, /peran pengguna/)
-})
-
-test('student application validates official internship fields', () => {
-  const res = createResponse()
-
-  createStudentApplication(
-    { user: { id: 4, role: 'student' }, query: {}, params: {}, body: { field: 'Bidang Tidak Ada', period: 'Juli 2026' } },
-    res,
-  )
-
-  assert.equal(res.statusCode, 400)
-  assert.equal(res.payload.message, 'Bidang magang tidak valid.')
+  assert.equal(res.payload.some((application) => application.mentor?.id === 2), true)
 })

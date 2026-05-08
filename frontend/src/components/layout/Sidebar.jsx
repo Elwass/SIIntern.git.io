@@ -16,12 +16,13 @@ const studentLinks = [
 
 const adminLinks = [
   ['/admin', 'Dashboard Admin'],
+  ['/admin/applications', 'Pendaftaran Magang'],
   ['/report', 'Laporan & Penilaian'],
 ]
 
 const mentorLinks = [
-  ['/mentor', 'Dashboard Mentor'],
-  ['/report', 'Validasi & Penilaian'],
+  ['/mentor', 'Mahasiswa Bimbingan'],
+  ['/mentor/applications', 'Pendaftaran Magang'],
 ]
 
 function getLinks(role) {

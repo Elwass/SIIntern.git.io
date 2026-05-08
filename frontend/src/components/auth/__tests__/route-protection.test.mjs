@@ -7,7 +7,7 @@ const appSource = readFileSync(new URL('../../../App.jsx', import.meta.url), 'ut
 test('protected dashboard routes are nested behind ProtectedRoute redirect guard', () => {
   const protectedBlock = appSource.slice(appSource.indexOf('<Route element={<ProtectedRoute />}>'))
 
-  for (const routePath of ['/admin', '/mentor', '/student', '/student/applications', '/student/documents', '/student/logbooks', '/report']) {
+  for (const routePath of ['/admin', '/mentor', '/student', '/student/applications', '/student/documents', '/student/logbooks', '/admin/applications', '/mentor/applications', '/report']) {
     assert.match(protectedBlock, new RegExp(`path="${routePath}"`))
   }
 })

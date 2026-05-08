@@ -4,22 +4,22 @@ const sectionContent = {
   applications: {
     title: 'Pendaftaran Magang',
     description: 'Form pengajuan bidang dan periode magang mahasiswa DPRD Kabupaten Banyumas.',
-    action: 'Data pendaftaran akan tersimpan melalui endpoint /api/student/applications.',
+    action: 'Gunakan menu Pendaftaran Magang untuk mengisi form, mengunggah dokumen, dan memantau status.',
   },
   profile: {
     title: 'Data Diri',
     description: 'Lengkapi identitas mahasiswa, kampus, program studi, kontak, dan alamat.',
-    action: 'Data diri akan tersinkron dengan endpoint /api/student/profile.',
+    action: 'Fitur data diri lengkap akan diprioritaskan setelah pendaftaran magang selesai.',
   },
   documents: {
     title: 'Dokumen',
     description: 'Kelola surat pengantar kampus, CV, KTM, transkrip nilai, dan pas foto.',
-    action: 'Upload dan penghapusan dokumen menggunakan endpoint /api/student/documents.',
+    action: 'Dokumen pendaftaran saat ini dikelola langsung di menu Pendaftaran Magang.',
   },
   logbooks: {
     title: 'Logbook Harian',
     description: 'Catat aktivitas harian magang untuk divalidasi mentor.',
-    action: 'Logbook harian menggunakan endpoint /api/student/logbooks.',
+    action: 'Logbook harian akan dibuka setelah pendaftaran diterima dan mentor ditetapkan.',
   },
   schedule: {
     title: 'Jadwal / Kegiatan',
@@ -29,12 +29,12 @@ const sectionContent = {
   mentor: {
     title: 'Mentor',
     description: 'Informasi mentor pembimbing dan unit kerja penempatan.',
-    action: 'Data mentor dibaca dari endpoint /api/student/mentor.',
+    action: 'Informasi mentor akan tampil setelah admin menetapkan pembimbing pada pendaftaran yang diterima.',
   },
   assessments: {
     title: 'Penilaian',
     description: 'Lihat hasil evaluasi mentor dan status penilaian akhir.',
-    action: 'Penilaian tersedia melalui endpoint /api/student/assessments.',
+    action: 'Penilaian mentor akan tersedia pada tahap pelaksanaan magang.',
   },
   final_report: {
     title: 'Laporan Akhir',
@@ -43,8 +43,8 @@ const sectionContent = {
   },
   notifications: {
     title: 'Notifikasi',
-    description: 'Informasi verifikasi berkas, status seleksi, dan catatan mentor/admin.',
-    action: 'Notifikasi dibaca dari endpoint /api/student/notifications.',
+    description: 'Informasi verifikasi berkas dan catatan admin tersedia di menu Pendaftaran Magang.',
+    action: 'Notifikasi lanjutan akan disiapkan setelah alur pendaftaran stabil.',
   },
 }
 
