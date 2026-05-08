@@ -31,13 +31,13 @@ test('login success calls backend and returns token payload', async () => {
     assert.equal(url, '/api/auth/login')
     assert.equal(options.method, 'POST')
     assert.deepEqual(JSON.parse(options.body), {
-      email: 'student@dprd.go.id',
-      password: 'student123',
+      email: 'student@example.com',
+      password: 'secret123',
     })
     return new Response(JSON.stringify({ token: 'jwt-token', role: 'student' }), { status: 200 })
   }
 
-  const result = await loginUser({ email: 'student@dprd.go.id', password: 'student123' })
+  const result = await loginUser({ email: 'student@example.com', password: 'secret123' })
   assert.equal(result.token, 'jwt-token')
   assert.equal(getDashboardPath(result.role), '/student')
 })
@@ -104,9 +104,9 @@ test('student dashboard service sends Authorization header to backend student en
   global.fetch = async (url, options) => {
     assert.equal(url, '/api/student/dashboard')
     assert.equal(options.headers.Authorization, 'Bearer student-token')
-    return new Response(JSON.stringify({ profile: { name: 'Mahasiswa Demo' } }), { status: 200 })
+    return new Response(JSON.stringify({ profile: null, application: null, documents: [] }), { status: 200 })
   }
 
   const result = await getStudentDashboard()
-  assert.equal(result.profile.name, 'Mahasiswa Demo')
+  assert.equal(result.application, null)
 })

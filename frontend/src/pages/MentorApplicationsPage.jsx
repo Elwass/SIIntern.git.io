@@ -8,7 +8,7 @@ export default function MentorApplicationsPage() {
   const [error, setError] = useState('')
 
   useEffect(() => { listMentorApplications().then(setRows).catch((err) => setError(err.message)) }, [])
-  const loadDetail = (id) => getMentorApplication(id).then(setSelected).catch((err) => setError(err.message))
+  const loadDetail = (id) => getMentorApplication(id).then((detail) => setSelected({ ...detail.application, ...detail.profile, documents: detail.documents || [] })).catch((err) => setError(err.message))
 
   return (
     <DashboardLayout>
