@@ -1,10 +1,13 @@
 {
   "name": "siintern-backend",
   "version": "0.1.0",
+  "type": "module",
   "main": "src/server.js",
   "scripts": {
     "dev": "node --watch src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "test": "node --test",
+    "migrate": "node src/db/migrate.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -12,6 +15,6 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
-    "pg": "^8.13.1"
+    "mysql2": "^3.11.5"
   }
 }
