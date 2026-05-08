@@ -5,6 +5,14 @@ import { pool } from '../config/db.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const schema = await readFile(join(__dirname, 'schema.sql'), 'utf8')
-await pool.query(schema)
+const statements = schema
+  .split(';')
+  .map((statement) => statement.trim())
+  .filter(Boolean)
+
+for (const statement of statements) {
+  await pool.query(statement)
+}
+
 await pool.end()
 console.log('Database schema migrated')
