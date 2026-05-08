@@ -1,0 +1,13 @@
+{
+  "name": "siintern-workspace",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "test": "npm test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "migrate": "npm --workspace backend run migrate"
+  }
+}
