@@ -99,6 +99,7 @@ async function createOtpRecordAndSendMail({ userId, email, purpose }) {
   const otpPlain = generateOtp6Digits()
   const otpHash = await bcrypt.hash(otpPlain, 10)
 
+  console.log('OTP yang dikirim:', { email, purpose, otp: otpPlain })
   debugLog('CREATE_OTP_HASHED', { userId, email, purpose })
 
   const [result] = await pool.query(
@@ -141,6 +142,15 @@ async function verifyOtpOrThrow({ userId, email, purpose, otpInput }) {
     await pool.query('UPDATE email_otps SET attempts = attempts + 1 WHERE id = ?', [otpRow.id])
     throw createError('OTP salah.', 400)
   }
+}
+
+/** Forgot password: kirim OTP reset jika email ada */
+export async function forgotPassword(req, res, next) {
+  try {
+    const { email = '' } = req.body
+    const normalizedEmail = email.trim().toLowerCase()
+
+    if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Format email tidak valid.', 400)
 
   await pool.query('UPDATE email_otps SET used_at = NOW() WHERE id = ?', [otpRow.id])
   debugLog('OTP_MARKED_USED', { otpId: otpRow.id })
@@ -164,6 +174,7 @@ async function createSession(user, req, res) {
 /** Signup: validasi -> hash password -> simpan user pending -> generate OTP signup */
 export async function signup(req, res, next) {
   try {
+    console.log('payload register:', req.body)
     const { name = '', email = '', password = '', confirmPassword = '' } = req.body
     const normalizedName = name.trim()
     const normalizedEmail = email.trim().toLowerCase()
@@ -195,6 +206,7 @@ export async function signup(req, res, next) {
       message: 'Registrasi berhasil. OTP telah dikirim ke email.',
     })
   } catch (error) {
+    console.error('Register error detail:', error)
     return next(error)
   }
 }
@@ -226,6 +238,7 @@ export async function verifySignup(req, res, next) {
 /** Signin step 1: validasi password, lalu kirim OTP signin */
 export async function signin(req, res, next) {
   try {
+    console.log('payload login:', req.body)
     const { email = '', password = '' } = req.body
     const normalizedEmail = email.trim().toLowerCase()
 
@@ -246,6 +259,7 @@ export async function signin(req, res, next) {
 
     return res.json({ message: 'OTP login telah dikirim ke email.' })
   } catch (error) {
+    console.error('Login error detail:', error)
     return next(error)
   }
 }
@@ -379,3 +393,5 @@ export async function me(req, res, next) {
 
 // Legacy alias: gunakan endpoint /signin untuk login
 export const login = signin
+
+export const register = signup
