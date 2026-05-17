@@ -378,6 +378,103 @@ export async function me(req, res, next) {
 }
 
 
-// Alias kompatibilitas untuk kode lama yang memanggil `register`/`login`.
-export const register = signup
+
+
+/**
+ * Legacy/Register endpoint: /api/auth/register
+ * Payload: { name, email, password }
+ */
+export async function register(req, res) {
+  try {
+    console.log('Payload register:', req.body)
+
+    const { name = '', email = '', password = '' } = req.body
+    const normalizedName = name.trim()
+    const normalizedEmail = email.trim().toLowerCase()
+
+    if (!normalizedName || !EMAIL_REGEX.test(normalizedEmail) || password.length < 8) {
+      return res.status(400).json({ success: false, message: 'Invalid name/email/password.' })
+    }
+
+    const [existing] = await pool.query('SELECT id FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
+    if (existing.length > 0) {
+      return res.status(409).json({ success: false, message: 'Email already registered.' })
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12)
+    const [insertResult] = await pool.query(
+      `INSERT INTO users (name, email, password_hash, email_verified_at, status, role)
+       VALUES (?, ?, ?, NULL, 'pending', 'student')`,
+      [normalizedName, normalizedEmail, passwordHash],
+    )
+
+    const userId = insertResult.insertId
+    console.log('Inserted user id:', userId)
+
+    const otp = generateOtp6Digits()
+    const otpHash = await bcrypt.hash(otp, 10)
+
+    await pool.query(
+      `INSERT INTO email_otps (user_id, email, purpose, otp_hash, expires_at, attempts, created_at)
+       VALUES (?, ?, 'signup', ?, DATE_ADD(NOW(), INTERVAL 5 MINUTE), 0, NOW())`,
+      [userId, normalizedEmail, otpHash],
+    )
+
+    const info = await mailer.sendMail({
+      from: process.env.EMAIL_FROM,
+      to: normalizedEmail,
+      subject: 'OTP Verification - SIIntern',
+      text: `Your OTP is: ${otp}. It will expire in 5 minutes.`,
+    })
+
+    console.log('OTP sent:', otp)
+    debugLog('SEND_OTP_EMAIL_SUCCESS', { messageId: info.messageId, email: normalizedEmail, purpose: 'signup' })
+
+    return res.status(201).json({ success: true, message: 'OTP sent to email', data: { userId } })
+  } catch (err) {
+    console.error('Register error:', err)
+    return res.status(500).json({ success: false, message: err.message })
+  }
+}
+
+/**
+ * Legacy verify endpoint: /api/auth/verify
+ * Payload: { userId, otp }
+ */
+export async function verify(req, res) {
+  try {
+    const { userId, otp } = req.body
+    if (!userId || !/^\d{6}$/.test(String(otp || ''))) {
+      return res.status(400).json({ success: false, message: 'Invalid userId/otp.' })
+    }
+
+    const [rows] = await pool.query(
+      `SELECT * FROM email_otps
+       WHERE user_id = ? AND purpose = 'signup' AND used_at IS NULL
+       ORDER BY id DESC LIMIT 1`,
+      [Number(userId)],
+    )
+
+    const otpRow = rows[0]
+    if (!otpRow) return res.status(400).json({ success: false, message: 'OTP not found.' })
+    if (new Date(otpRow.expires_at) < new Date()) return res.status(400).json({ success: false, message: 'OTP expired.' })
+    if (otpRow.attempts >= MAX_OTP_ATTEMPTS) return res.status(429).json({ success: false, message: 'OTP attempts exceeded.' })
+
+    const match = await bcrypt.compare(String(otp), otpRow.otp_hash)
+    if (!match) {
+      await pool.query('UPDATE email_otps SET attempts = attempts + 1 WHERE id = ?', [otpRow.id])
+      console.log('verify OTP mismatch:', { userId, otpId: otpRow.id })
+      return res.status(400).json({ success: false, message: 'OTP invalid.' })
+    }
+
+    await pool.query("UPDATE users SET email_verified_at = NOW(), status = 'active' WHERE id = ?", [Number(userId)])
+    await pool.query('DELETE FROM email_otps WHERE id = ?', [otpRow.id])
+
+    return res.json({ success: true, message: 'Email verified' })
+  } catch (err) {
+    console.error('Verify error:', err)
+    return res.status(500).json({ success: false, message: err.message })
+  }
+}
+
 export const login = signin
