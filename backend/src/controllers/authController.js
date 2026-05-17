@@ -335,7 +335,6 @@ export async function me(req, res, next) {
   }
 }
 
-export const register = signup
-export const verify = verifySignup
+// Legacy alias: gunakan endpoint /signin untuk login
 export const login = signin
 export const verifyLogin = verifySignin
