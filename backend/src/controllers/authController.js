@@ -142,6 +142,15 @@ async function verifyOtpOrThrow({ userId, email, purpose, otpInput }) {
     await pool.query('UPDATE email_otps SET attempts = attempts + 1 WHERE id = ?', [otpRow.id])
     throw createError('OTP salah.', 400)
   }
+}
+
+/** Forgot password: kirim OTP reset jika email ada */
+export async function forgotPassword(req, res, next) {
+  try {
+    const { email = '' } = req.body
+    const normalizedEmail = email.trim().toLowerCase()
+
+    if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Format email tidak valid.', 400)
 
   await pool.query('UPDATE email_otps SET used_at = NOW() WHERE id = ?', [otpRow.id])
   debugLog('OTP_MARKED_USED', { otpId: otpRow.id })
