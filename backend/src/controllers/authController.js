@@ -15,13 +15,6 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const jwtSecret = () => process.env.JWT_SECRET || 'super-secret'
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex')
 
-
-// Catatan penting:
-// - OTP TIDAK disimpan di tabel `users` (mis. kolom otp/otp_expiry).
-// - OTP disimpan terpisah di tabel `email_otps` dalam bentuk hash bcrypt.
-// - Pendekatan ini lebih aman dan sesuai schema backend SIIntern.
-
-// SMTP transporter untuk Gmail/App Password
 const mailer = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: Number(process.env.SMTP_PORT || 587),
@@ -59,7 +52,6 @@ function buildPublicUser(user) {
   }
 }
 
-// Set refresh token pada cookie httpOnly
 function setRefreshCookie(res, refreshToken) {
   res.cookie('refresh_token', refreshToken, {
     httpOnly: true,
@@ -69,12 +61,10 @@ function setRefreshCookie(res, refreshToken) {
   })
 }
 
-// Membuat OTP 6 digit
 function generateOtp6Digits() {
   return String(crypto.randomInt(100000, 1000000))
 }
 
-// Kirim OTP asli ke email user via SMTP
 async function sendOtpEmail(email, otp, purpose) {
   const purposeLabel = {
     signup: 'Verifikasi Sign Up',
@@ -94,7 +84,6 @@ async function sendOtpEmail(email, otp, purpose) {
   debugLog('SEND_OTP_EMAIL_SUCCESS', { messageId: info.messageId, email, purpose })
 }
 
-// Simpan OTP ter-hash ke DB, lalu kirim OTP ke email
 async function createOtpRecordAndSendMail({ userId, email, purpose }) {
   const otpPlain = generateOtp6Digits()
   const otpHash = await bcrypt.hash(otpPlain, 10)
@@ -112,7 +101,6 @@ async function createOtpRecordAndSendMail({ userId, email, purpose }) {
   await sendOtpEmail(email, otpPlain, purpose)
 }
 
-// Verifikasi OTP aktif terbaru untuk user+purpose
 async function verifyOtpOrThrow({ userId, email, purpose, otpInput }) {
   const [rows] = await pool.query(
     `SELECT * FROM email_otps
@@ -126,14 +114,8 @@ async function verifyOtpOrThrow({ userId, email, purpose, otpInput }) {
 
   const otpRow = rows[0]
   if (!otpRow) throw createError('OTP tidak ditemukan.', 400)
-
-  if (otpRow.attempts >= MAX_OTP_ATTEMPTS) {
-    throw createError('OTP melebihi batas percobaan (5x).', 429)
-  }
-
-  if (new Date(otpRow.expires_at) < new Date()) {
-    throw createError('OTP sudah kadaluarsa (10 menit).', 400)
-  }
+  if (otpRow.attempts >= MAX_OTP_ATTEMPTS) throw createError('OTP melebihi batas percobaan (5x).', 429)
+  if (new Date(otpRow.expires_at) < new Date()) throw createError('OTP sudah kadaluarsa (10 menit).', 400)
 
   const match = await bcrypt.compare(otpInput, otpRow.otp_hash)
   debugLog('OTP_COMPARE_RESULT', { otpId: otpRow.id, match })
@@ -142,21 +124,11 @@ async function verifyOtpOrThrow({ userId, email, purpose, otpInput }) {
     await pool.query('UPDATE email_otps SET attempts = attempts + 1 WHERE id = ?', [otpRow.id])
     throw createError('OTP salah.', 400)
   }
-}
-
-/** Forgot password: kirim OTP reset jika email ada */
-export async function forgotPassword(req, res, next) {
-  try {
-    const { email = '' } = req.body
-    const normalizedEmail = email.trim().toLowerCase()
-
-    if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Format email tidak valid.', 400)
 
   await pool.query('UPDATE email_otps SET used_at = NOW() WHERE id = ?', [otpRow.id])
   debugLog('OTP_MARKED_USED', { otpId: otpRow.id })
 }
 
-// Buat session refresh token ke DB dan set cookie httpOnly
 async function createSession(user, req, res) {
   const refreshTokenPlain = crypto.randomBytes(48).toString('hex')
   const refreshTokenHash = sha256(refreshTokenPlain)
@@ -171,7 +143,6 @@ async function createSession(user, req, res) {
   setRefreshCookie(res, refreshTokenPlain)
 }
 
-/** Signup: validasi -> hash password -> simpan user pending -> generate OTP signup */
 export async function signup(req, res, next) {
   try {
     console.log('payload register:', req.body)
@@ -186,32 +157,24 @@ export async function signup(req, res, next) {
 
     const [existingRows] = await pool.query('SELECT id FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
     debugLog('DB_SELECT_USER_BY_EMAIL', { email: normalizedEmail, found: existingRows.length > 0 })
-
     if (existingRows.length) throw createError('Email sudah terdaftar.', 409)
 
     const passwordHash = await bcrypt.hash(password, 12)
-    debugLog('PASSWORD_HASH_CREATED', { email: normalizedEmail })
-
     const [insertResult] = await pool.query(
       `INSERT INTO users (name, email, password_hash, status, role)
        VALUES (?, ?, ?, 'pending', 'student')`,
       [normalizedName, normalizedEmail, passwordHash],
     )
-
     debugLog('DB_INSERT_USER', { userId: insertResult.insertId, email: normalizedEmail })
 
     await createOtpRecordAndSendMail({ userId: insertResult.insertId, email: normalizedEmail, purpose: 'signup' })
-
-    return res.status(201).json({
-      message: 'Registrasi berhasil. OTP telah dikirim ke email.',
-    })
+    return res.status(201).json({ message: 'Registrasi berhasil. OTP telah dikirim ke email.' })
   } catch (error) {
     console.error('Register error detail:', error)
     return next(error)
   }
 }
 
-/** Verify signup OTP: jika valid maka akun diaktifkan */
 export async function verifySignup(req, res, next) {
   try {
     const { email = '', otp = '' } = req.body
@@ -225,17 +188,13 @@ export async function verifySignup(req, res, next) {
     if (!user) throw createError('Email tidak ditemukan.', 404)
 
     await verifyOtpOrThrow({ userId: user.id, email: user.email, purpose: 'signup', otpInput: otp })
-
     await pool.query(`UPDATE users SET status = 'active', email_verified_at = NOW() WHERE id = ?`, [user.id])
-    debugLog('DB_UPDATE_USER_ACTIVATE', { userId: user.id })
-
     return res.json({ message: 'Verifikasi email berhasil. Akun aktif.' })
   } catch (error) {
     return next(error)
   }
 }
 
-/** Signin step 1: validasi password, lalu kirim OTP signin */
 export async function signin(req, res, next) {
   try {
     console.log('payload login:', req.body)
@@ -250,13 +209,10 @@ export async function signin(req, res, next) {
     if (!user) throw createError('Email tidak ditemukan.', 404)
 
     const passwordMatch = await bcrypt.compare(password, user.password_hash)
-    debugLog('PASSWORD_COMPARE', { email: normalizedEmail, passwordMatch })
-
     if (!passwordMatch) throw createError('Password salah.', 401)
     if (user.status !== 'active') throw createError('Akun belum aktif atau diblokir.', 403)
 
     await createOtpRecordAndSendMail({ userId: user.id, email: user.email, purpose: 'signin' })
-
     return res.json({ message: 'OTP login telah dikirim ke email.' })
   } catch (error) {
     console.error('Login error detail:', error)
@@ -264,7 +220,6 @@ export async function signin(req, res, next) {
   }
 }
 
-/** Signin step 2: verifikasi OTP, lalu issue access token + refresh cookie/session */
 export async function verifySignin(req, res, next) {
   try {
     const { email = '', otp = '' } = req.body
@@ -292,7 +247,6 @@ export async function verifySignin(req, res, next) {
   }
 }
 
-/** Resend OTP untuk purpose: signup/signin/reset */
 export async function resendOtp(req, res, next) {
   try {
     const { email = '', purpose = 'signup' } = req.body
@@ -312,7 +266,6 @@ export async function resendOtp(req, res, next) {
   }
 }
 
-/** Forgot password: kirim OTP reset jika email ada */
 export async function forgotPassword(req, res, next) {
   try {
     const { email = '' } = req.body
@@ -322,10 +275,7 @@ export async function forgotPassword(req, res, next) {
 
     const [rows] = await pool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
     const user = rows[0]
-
-    if (user) {
-      await createOtpRecordAndSendMail({ userId: user.id, email: user.email, purpose: 'reset_password' })
-    }
+    if (user) await createOtpRecordAndSendMail({ userId: user.id, email: user.email, purpose: 'reset_password' })
 
     return res.json({ message: 'Jika email terdaftar, OTP reset telah dikirim.' })
   } catch (error) {
@@ -333,7 +283,6 @@ export async function forgotPassword(req, res, next) {
   }
 }
 
-/** Reset password: verifikasi OTP reset lalu update password_hash */
 export async function resetPassword(req, res, next) {
   try {
     const { email = '', otp = '', password = '', confirmPassword = '' } = req.body
@@ -351,8 +300,6 @@ export async function resetPassword(req, res, next) {
     await verifyOtpOrThrow({ userId: user.id, email: user.email, purpose: 'reset_password', otpInput: otp })
 
     const newHash = await bcrypt.hash(password, 12)
-    debugLog('PASSWORD_HASH_UPDATED', { userId: user.id })
-
     await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, user.id])
     return res.json({ message: 'Password berhasil diperbarui.' })
   } catch (error) {
@@ -360,15 +307,13 @@ export async function resetPassword(req, res, next) {
   }
 }
 
-/** Logout: hapus session berdasarkan refresh token cookie */
 export async function logout(req, res, next) {
   try {
     const refreshToken = req.cookies?.refresh_token || null
 
     if (refreshToken) {
       const refreshHash = sha256(refreshToken)
-      const [result] = await pool.query('DELETE FROM sessions WHERE refresh_token_hash = ?', [refreshHash])
-      debugLog('DB_DELETE_SESSION', { affectedRows: result.affectedRows })
+      await pool.query('DELETE FROM sessions WHERE refresh_token_hash = ?', [refreshHash])
     }
 
     res.clearCookie('refresh_token')
@@ -378,7 +323,6 @@ export async function logout(req, res, next) {
   }
 }
 
-/** Get current user profile dari JWT */
 export async function me(req, res, next) {
   try {
     const [rows] = await pool.query('SELECT * FROM users WHERE id = ? LIMIT 1', [req.user.id])
@@ -391,7 +335,7 @@ export async function me(req, res, next) {
   }
 }
 
-// Legacy alias: gunakan endpoint /signin untuk login
-export const login = signin
-
 export const register = signup
+export const verify = verifySignup
+export const login = signin
+export const verifyLogin = verifySignin
