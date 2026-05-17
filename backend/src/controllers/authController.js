@@ -9,7 +9,7 @@ const MAX_OTP_ATTEMPTS = 5
 const JWT_ACCESS_EXPIRES = process.env.JWT_ACCESS_EXPIRES || '15m'
 const JWT_REFRESH_EXPIRES_DAYS = Number(process.env.JWT_REFRESH_EXPIRES_DAYS || 7)
 
-const ALLOWED_PURPOSES = new Set(['signup', 'signin', 'reset'])
+const ALLOWED_PURPOSES = new Set(['signup', 'signin', 'reset_password'])
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const jwtSecret = () => process.env.JWT_SECRET || 'super-secret'
@@ -36,18 +36,10 @@ function debugLog(step, payload = {}) {
   console.log(`[AUTH][${step}]`, payload)
 }
 
-function parseCookie(req, cookieName) {
-  const cookieHeader = req.headers.cookie || ''
-  const targetCookie = cookieHeader
-    .split(';')
-    .map((part) => part.trim())
-    .find((part) => part.startsWith(`${cookieName}=`))
-
-  return targetCookie ? decodeURIComponent(targetCookie.split('=').slice(1).join('=')) : null
-}
-
 function issueAccessToken(user) {
-  return jwt.sign({ id: user.id, email: user.email, role: user.role }, jwtSecret(), { expiresIn: JWT_ACCESS_EXPIRES })
+  const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, jwtSecret(), { expiresIn: JWT_ACCESS_EXPIRES })
+  debugLog('JWT_GENERATED', { userId: user.id, expiresIn: JWT_ACCESS_EXPIRES })
+  return token
 }
 
 function buildPublicUser(user) {
@@ -81,7 +73,7 @@ async function sendOtpEmail(email, otp, purpose) {
   const purposeLabel = {
     signup: 'Verifikasi Sign Up',
     signin: 'Verifikasi Sign In',
-    reset: 'Reset Password',
+    reset_password: 'Reset Password',
   }[purpose]
 
   debugLog('SEND_OTP_EMAIL_START', { email, purpose })
@@ -143,6 +135,13 @@ async function verifyOtpOrThrow({ userId, email, purpose, otpInput }) {
     await pool.query('UPDATE email_otps SET attempts = attempts + 1 WHERE id = ?', [otpRow.id])
     throw createError('OTP salah.', 400)
   }
+}
+
+/** Forgot password: kirim OTP reset jika email ada */
+export async function forgotPassword(req, res, next) {
+  try {
+    const { email = '' } = req.body
+    const normalizedEmail = email.trim().toLowerCase()
 
   await pool.query('UPDATE email_otps SET used_at = NOW() WHERE id = ?', [otpRow.id])
   debugLog('OTP_MARKED_USED', { otpId: otpRow.id })
@@ -312,7 +311,7 @@ export async function forgotPassword(req, res, next) {
     const user = rows[0]
 
     if (user) {
-      await createOtpRecordAndSendMail({ userId: user.id, email: user.email, purpose: 'reset' })
+      await createOtpRecordAndSendMail({ userId: user.id, email: user.email, purpose: 'reset_password' })
     }
 
     return res.json({ message: 'Jika email terdaftar, OTP reset telah dikirim.' })
@@ -336,7 +335,7 @@ export async function resetPassword(req, res, next) {
     const user = rows[0]
     if (!user) throw createError('Email tidak ditemukan.', 404)
 
-    await verifyOtpOrThrow({ userId: user.id, email: user.email, purpose: 'reset', otpInput: otp })
+    await verifyOtpOrThrow({ userId: user.id, email: user.email, purpose: 'reset_password', otpInput: otp })
 
     const newHash = await bcrypt.hash(password, 12)
     debugLog('PASSWORD_HASH_UPDATED', { userId: user.id })
@@ -351,7 +350,7 @@ export async function resetPassword(req, res, next) {
 /** Logout: hapus session berdasarkan refresh token cookie */
 export async function logout(req, res, next) {
   try {
-    const refreshToken = parseCookie(req, 'refresh_token')
+    const refreshToken = req.cookies?.refresh_token || null
 
     if (refreshToken) {
       const refreshHash = sha256(refreshToken)
