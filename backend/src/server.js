@@ -9,6 +9,7 @@ import adminRoutes from './routes/adminRoutes.js'
 import mentorRoutes from './routes/mentorRoutes.js'
 import { rateLimit } from './middleware/rateLimit.js'
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js'
+import { pool } from './config/db.js'
 
 dotenv.config()
 const app = express()
@@ -28,4 +29,12 @@ app.get('/api/health', (_, res) => res.json({ status: 'ok' }))
 app.use(notFoundHandler)
 app.use(errorHandler)
 
-app.listen(process.env.PORT || 5000, () => console.log('Backend running'))
+app.listen(process.env.PORT || 5000, async () => {
+  console.log('Backend running')
+  try {
+    const [rows] = await pool.query('SELECT 1 AS ok')
+    console.log('[DB] Startup SELECT 1 success:', rows[0])
+  } catch (error) {
+    console.error('[DB] Startup SELECT 1 failed:', error.message)
+  }
+})

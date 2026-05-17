@@ -433,6 +433,9 @@ export async function register(req, res) {
     return res.status(201).json({ success: true, message: 'OTP sent to email', data: { userId } })
   } catch (err) {
     console.error('Register error:', err)
+    if (err?.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ success: false, message: 'Email already registered.' })
+    }
     return res.status(500).json({ success: false, message: err.message })
   }
 }
