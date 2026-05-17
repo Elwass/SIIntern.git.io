@@ -391,8 +391,9 @@ export async function register(req, res) {
     const { name = '', email = '', password = '' } = req.body
     const normalizedName = name.trim()
     const normalizedEmail = email.trim().toLowerCase()
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-    if (!normalizedName || !EMAIL_REGEX.test(normalizedEmail) || password.length < 8) {
+    if (!normalizedName || !emailRegex.test(normalizedEmail) || password.length < 8) {
       return res.status(400).json({ success: false, message: 'Invalid name/email/password.' })
     }
 
