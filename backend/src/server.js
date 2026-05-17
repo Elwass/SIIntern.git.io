@@ -6,12 +6,14 @@ import dashboardRoutes from './routes/dashboardRoutes.js'
 import studentRoutes from './routes/studentRoutes.js'
 import adminRoutes from './routes/adminRoutes.js'
 import mentorRoutes from './routes/mentorRoutes.js'
+import { rateLimit } from './middleware/rateLimit.js'
 
 dotenv.config()
 const app = express()
 
 app.use(cors())
 app.use(express.json())
+app.use(rateLimit({ windowMs: 10 * 60 * 1000, max: 200 }))
 app.use('/api/auth', authRoutes)
 app.use('/api/dashboard', dashboardRoutes)
 app.use('/api/student', studentRoutes)
