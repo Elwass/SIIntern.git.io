@@ -2,7 +2,7 @@ import crypto from 'node:crypto'
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import nodemailer from 'nodemailer'
-import { pool as dbPool } from '../config/db.js'
+import { pool } from '../config/db.js'
 
 const OTP_EXPIRY_MINUTES = 10
 const MAX_OTP_ATTEMPTS = 5
@@ -101,7 +101,7 @@ async function createOtpRecordAndSendMail({ userId, email, purpose }) {
 
   debugLog('CREATE_OTP_HASHED', { userId, email, purpose })
 
-  const [result] = await dbPool.query(
+  const [result] = await pool.query(
     `INSERT INTO email_otps (user_id, email, purpose, otp_hash, expires_at, attempts)
      VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? MINUTE), 0)`,
     [userId, email, purpose, otpHash, OTP_EXPIRY_MINUTES],
@@ -113,7 +113,7 @@ async function createOtpRecordAndSendMail({ userId, email, purpose }) {
 
 // Verifikasi OTP aktif terbaru untuk user+purpose
 async function verifyOtpOrThrow({ userId, email, purpose, otpInput }) {
-  const [rows] = await dbPool.query(
+  const [rows] = await pool.query(
     `SELECT * FROM email_otps
      WHERE user_id = ? AND email = ? AND purpose = ? AND used_at IS NULL
      ORDER BY id DESC
@@ -138,11 +138,11 @@ async function verifyOtpOrThrow({ userId, email, purpose, otpInput }) {
   debugLog('OTP_COMPARE_RESULT', { otpId: otpRow.id, match })
 
   if (!match) {
-    await dbPool.query('UPDATE email_otps SET attempts = attempts + 1 WHERE id = ?', [otpRow.id])
+    await pool.query('UPDATE email_otps SET attempts = attempts + 1 WHERE id = ?', [otpRow.id])
     throw createError('OTP salah.', 400)
   }
 
-  await dbPool.query('UPDATE email_otps SET used_at = NOW() WHERE id = ?', [otpRow.id])
+  await pool.query('UPDATE email_otps SET used_at = NOW() WHERE id = ?', [otpRow.id])
   debugLog('OTP_MARKED_USED', { otpId: otpRow.id })
 }
 
@@ -151,7 +151,7 @@ async function createSession(user, req, res) {
   const refreshTokenPlain = crypto.randomBytes(48).toString('hex')
   const refreshTokenHash = sha256(refreshTokenPlain)
 
-  const [result] = await dbPool.query(
+  const [result] = await pool.query(
     `INSERT INTO sessions (user_id, refresh_token_hash, user_agent, ip_address, expires_at)
      VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? DAY))`,
     [user.id, refreshTokenHash, req.headers['user-agent'] || 'unknown', req.ip, JWT_REFRESH_EXPIRES_DAYS],
@@ -173,7 +173,7 @@ export async function signup(req, res, next) {
     if (password.length < 8) throw createError('Password minimal 8 karakter.', 400)
     if (password !== confirmPassword) throw createError('Konfirmasi password tidak cocok.', 400)
 
-    const [existingRows] = await dbPool.query('SELECT id FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
+    const [existingRows] = await pool.query('SELECT id FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
     debugLog('DB_SELECT_USER_BY_EMAIL', { email: normalizedEmail, found: existingRows.length > 0 })
 
     if (existingRows.length) throw createError('Email sudah terdaftar.', 409)
@@ -181,7 +181,7 @@ export async function signup(req, res, next) {
     const passwordHash = await bcrypt.hash(password, 12)
     debugLog('PASSWORD_HASH_CREATED', { email: normalizedEmail })
 
-    const [insertResult] = await dbPool.query(
+    const [insertResult] = await pool.query(
       `INSERT INTO users (name, email, password_hash, status, role)
        VALUES (?, ?, ?, 'pending', 'student')`,
       [normalizedName, normalizedEmail, passwordHash],
@@ -208,13 +208,13 @@ export async function verifySignup(req, res, next) {
     if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Format email tidak valid.', 400)
     if (!/^\d{6}$/.test(otp)) throw createError('OTP harus 6 digit angka.', 400)
 
-    const [rows] = await dbPool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
+    const [rows] = await pool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
     const user = rows[0]
     if (!user) throw createError('Email tidak ditemukan.', 404)
 
     await verifyOtpOrThrow({ userId: user.id, email: user.email, purpose: 'signup', otpInput: otp })
 
-    await dbPool.query(`UPDATE users SET status = 'active', email_verified_at = NOW() WHERE id = ?`, [user.id])
+    await pool.query(`UPDATE users SET status = 'active', email_verified_at = NOW() WHERE id = ?`, [user.id])
     debugLog('DB_UPDATE_USER_ACTIVATE', { userId: user.id })
 
     return res.json({ message: 'Verifikasi email berhasil. Akun aktif.' })
@@ -232,7 +232,7 @@ export async function signin(req, res, next) {
     if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Format email tidak valid.', 400)
     if (!password) throw createError('Password wajib diisi.', 400)
 
-    const [rows] = await dbPool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
+    const [rows] = await pool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
     const user = rows[0]
     if (!user) throw createError('Email tidak ditemukan.', 404)
 
@@ -259,7 +259,7 @@ export async function verifySignin(req, res, next) {
     if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Format email tidak valid.', 400)
     if (!/^\d{6}$/.test(otp)) throw createError('OTP harus 6 digit angka.', 400)
 
-    const [rows] = await dbPool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
+    const [rows] = await pool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
     const user = rows[0]
     if (!user) throw createError('Email tidak ditemukan.', 404)
 
@@ -287,7 +287,7 @@ export async function resendOtp(req, res, next) {
     if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Format email tidak valid.', 400)
     if (!ALLOWED_PURPOSES.has(purpose)) throw createError('Purpose OTP tidak valid.', 400)
 
-    const [rows] = await dbPool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
+    const [rows] = await pool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
     const user = rows[0]
     if (!user) throw createError('Email tidak ditemukan.', 404)
 
@@ -306,7 +306,7 @@ export async function forgotPassword(req, res, next) {
 
     if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Format email tidak valid.', 400)
 
-    const [rows] = await dbPool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
+    const [rows] = await pool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
     const user = rows[0]
 
     if (user) {
@@ -330,7 +330,7 @@ export async function resetPassword(req, res, next) {
     if (password.length < 8) throw createError('Password minimal 8 karakter.', 400)
     if (password !== confirmPassword) throw createError('Konfirmasi password tidak cocok.', 400)
 
-    const [rows] = await dbPool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
+    const [rows] = await pool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
     const user = rows[0]
     if (!user) throw createError('Email tidak ditemukan.', 404)
 
@@ -339,7 +339,7 @@ export async function resetPassword(req, res, next) {
     const newHash = await bcrypt.hash(password, 12)
     debugLog('PASSWORD_HASH_UPDATED', { userId: user.id })
 
-    await dbPool.query('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, user.id])
+    await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, user.id])
     return res.json({ message: 'Password berhasil diperbarui.' })
   } catch (error) {
     return next(error)
@@ -353,7 +353,7 @@ export async function logout(req, res, next) {
 
     if (refreshToken) {
       const refreshHash = sha256(refreshToken)
-      const [result] = await dbPool.query('DELETE FROM sessions WHERE refresh_token_hash = ?', [refreshHash])
+      const [result] = await pool.query('DELETE FROM sessions WHERE refresh_token_hash = ?', [refreshHash])
       debugLog('DB_DELETE_SESSION', { affectedRows: result.affectedRows })
     }
 
@@ -367,7 +367,7 @@ export async function logout(req, res, next) {
 /** Get current user profile dari JWT */
 export async function me(req, res, next) {
   try {
-    const [rows] = await dbPool.query('SELECT * FROM users WHERE id = ? LIMIT 1', [req.user.id])
+    const [rows] = await pool.query('SELECT * FROM users WHERE id = ? LIMIT 1', [req.user.id])
     const user = rows[0]
     if (!user) throw createError('User tidak ditemukan.', 404)
 
@@ -397,13 +397,13 @@ export async function register(req, res) {
       return res.status(400).json({ success: false, message: 'Invalid name/email/password.' })
     }
 
-    const [existing] = await dbPool.query('SELECT id FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
+    const [existing] = await pool.query('SELECT id FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
     if (existing.length > 0) {
       return res.status(409).json({ success: false, message: 'Email already registered.' })
     }
 
     const passwordHash = await bcrypt.hash(password, 12)
-    const [insertResult] = await dbPool.query(
+    const [insertResult] = await pool.query(
       `INSERT INTO users (name, email, password_hash, email_verified_at, status, role)
        VALUES (?, ?, ?, NULL, 'pending', 'student')`,
       [normalizedName, normalizedEmail, passwordHash],
@@ -415,7 +415,7 @@ export async function register(req, res) {
     const otp = generateOtp6Digits()
     const otpHash = await bcrypt.hash(otp, 10)
 
-    await dbPool.query(
+    await pool.query(
       `INSERT INTO email_otps (user_id, email, purpose, otp_hash, expires_at, attempts, created_at)
        VALUES (?, ?, 'signup', ?, DATE_ADD(NOW(), INTERVAL 5 MINUTE), 0, NOW())`,
       [userId, normalizedEmail, otpHash],
@@ -452,7 +452,7 @@ export async function verify(req, res) {
       return res.status(400).json({ success: false, message: 'Invalid userId/otp.' })
     }
 
-    const [rows] = await dbPool.query(
+    const [rows] = await pool.query(
       `SELECT * FROM email_otps
        WHERE user_id = ? AND purpose = 'signup' AND used_at IS NULL
        ORDER BY id DESC LIMIT 1`,
@@ -466,13 +466,13 @@ export async function verify(req, res) {
 
     const match = await bcrypt.compare(String(otp), otpRow.otp_hash)
     if (!match) {
-      await dbPool.query('UPDATE email_otps SET attempts = attempts + 1 WHERE id = ?', [otpRow.id])
+      await pool.query('UPDATE email_otps SET attempts = attempts + 1 WHERE id = ?', [otpRow.id])
       console.log('verify OTP mismatch:', { userId, otpId: otpRow.id })
       return res.status(400).json({ success: false, message: 'OTP invalid.' })
     }
 
-    await dbPool.query("UPDATE users SET email_verified_at = NOW(), status = 'active' WHERE id = ?", [Number(userId)])
-    await dbPool.query('DELETE FROM email_otps WHERE id = ?', [otpRow.id])
+    await pool.query("UPDATE users SET email_verified_at = NOW(), status = 'active' WHERE id = ?", [Number(userId)])
+    await pool.query('DELETE FROM email_otps WHERE id = ?', [otpRow.id])
 
     return res.json({ success: true, message: 'Email verified' })
   } catch (err) {
