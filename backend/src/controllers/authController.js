@@ -129,7 +129,6 @@ async function verifyOtpOrThrow({ userId, email, purpose, otpInput }) {
   if (otpRow.attempts >= MAX_OTP_ATTEMPTS) {
     throw createError('OTP melebihi batas percobaan (5x).', 429)
   }
-}
 
   if (new Date(otpRow.expires_at) < new Date()) {
     throw createError('OTP sudah kadaluarsa (10 menit).', 400)
@@ -378,6 +377,7 @@ export async function me(req, res, next) {
   }
 }
 
+<<<<<<< HEAD
 
 
 
@@ -669,4 +669,7 @@ export async function verify(req, res) {
   }
 }
 
+=======
+// Legacy alias: gunakan endpoint /signin untuk login
+>>>>>>> 6e11c86def460dedfb1e22720c22099e9eda7609
 export const login = signin
