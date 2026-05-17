@@ -1,13 +1,14 @@
 import { Router } from 'express'
-import { forgotPassword, login, logout, me, register, resendOtp, resetPassword, signin, signup, verifySignin, verifySignup } from '../controllers/authController.js'
+import { forgotPassword, logout, me, resendOtp, resetPassword, signin, signup, verifySignin, verifySignup } from '../controllers/authController.js'
 import { authMiddleware } from '../middleware/auth.js'
 
 const router = Router()
-router.post('/register', register)
+router.post('/register', signup)
 router.post('/signup', signup)
 router.post('/verify-signup', verifySignup)
+router.post('/verify', verifySignup)
 router.post('/signin', signin)
-router.post('/login', login)
+router.post('/login', signin)
 router.post('/verify-signin', verifySignin)
 router.post('/verify-login', verifySignin)
 router.post('/resend-otp', resendOtp)
