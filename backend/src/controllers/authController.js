@@ -100,17 +100,223 @@ async function verifyOtpOrThrow({ userId, email, purpose, otpInput }) {
   return res.json({ token: issueToken(user), role: user.role, user: publicUser(user) })
 }
 
-export const register = async (req, res) => {
-  const { name = '', email = '', password = '' } = req.body
-  const normalizedName = name.trim()
-  const normalizedEmail = email.trim().toLowerCase()
-  if (!normalizedName || !normalizedEmail || !password) return res.status(400).json({ message: 'Nama, email, dan password wajib diisi.' })
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) return res.status(400).json({ message: 'Format email tidak valid.' })
-  if (password.length < 6) return res.status(400).json({ message: 'Password minimal 6 karakter.' })
+/** Signup: validasi -> hash password -> simpan user pending -> generate OTP signup */
+export async function signup(req, res, next) {
+  try {
+    const { name = '', email = '', password = '', confirmPassword = '' } = req.body
+    const normalizedName = name.trim()
+    const normalizedEmail = email.trim().toLowerCase()
 
-  const existingUser = await users.findUserByEmail(normalizedEmail)
-  if (existingUser) return res.status(409).json({ message: 'Email sudah terdaftar.' })
+    if (!normalizedName) throw createError('Nama wajib diisi.', 400)
+    if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Format email tidak valid.', 400)
+    if (password.length < 8) throw createError('Password minimal 8 karakter.', 400)
+    if (password !== confirmPassword) throw createError('Konfirmasi password tidak cocok.', 400)
 
-  const user = await users.createUser({ name: normalizedName, email: normalizedEmail, passwordHash: await bcrypt.hash(password, 10), role: 'student' })
-  return res.status(201).json({ token: issueToken(user), role: user.role, user: publicUser(user) })
+    const [existingRows] = await pool.query('SELECT id FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
+    debugLog('DB_SELECT_USER_BY_EMAIL', { email: normalizedEmail, found: existingRows.length > 0 })
+
+    if (existingRows.length) throw createError('Email sudah terdaftar.', 409)
+
+    const passwordHash = await bcrypt.hash(password, 12)
+    debugLog('PASSWORD_HASH_CREATED', { email: normalizedEmail })
+
+    const [insertResult] = await pool.query(
+      `INSERT INTO users (name, email, password_hash, status, role)
+       VALUES (?, ?, ?, 'pending', 'student')`,
+      [normalizedName, normalizedEmail, passwordHash],
+    )
+
+    debugLog('DB_INSERT_USER', { userId: insertResult.insertId, email: normalizedEmail })
+
+    await createOtpRecordAndSendMail({ userId: insertResult.insertId, email: normalizedEmail, purpose: 'signup' })
+
+    return res.status(201).json({
+      message: 'Registrasi berhasil. OTP telah dikirim ke email.',
+    })
+  } catch (error) {
+    return next(error)
+  }
 }
+
+/** Verify signup OTP: jika valid maka akun diaktifkan */
+export async function verifySignup(req, res, next) {
+  try {
+    const { email = '', otp = '' } = req.body
+    const normalizedEmail = email.trim().toLowerCase()
+
+    if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Format email tidak valid.', 400)
+    if (!/^\d{6}$/.test(otp)) throw createError('OTP harus 6 digit angka.', 400)
+
+    const [rows] = await pool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
+    const user = rows[0]
+    if (!user) throw createError('Email tidak ditemukan.', 404)
+
+    await verifyOtpOrThrow({ userId: user.id, email: user.email, purpose: 'signup', otpInput: otp })
+
+    await pool.query(`UPDATE users SET status = 'active', email_verified_at = NOW() WHERE id = ?`, [user.id])
+    debugLog('DB_UPDATE_USER_ACTIVATE', { userId: user.id })
+
+    return res.json({ message: 'Verifikasi email berhasil. Akun aktif.' })
+  } catch (error) {
+    return next(error)
+  }
+}
+
+/** Signin step 1: validasi password, lalu kirim OTP signin */
+export async function signin(req, res, next) {
+  try {
+    const { email = '', password = '' } = req.body
+    const normalizedEmail = email.trim().toLowerCase()
+
+    if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Format email tidak valid.', 400)
+    if (!password) throw createError('Password wajib diisi.', 400)
+
+    const [rows] = await pool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
+    const user = rows[0]
+    if (!user) throw createError('Email tidak ditemukan.', 404)
+
+    const passwordMatch = await bcrypt.compare(password, user.password_hash)
+    debugLog('PASSWORD_COMPARE', { email: normalizedEmail, passwordMatch })
+
+    if (!passwordMatch) throw createError('Password salah.', 401)
+    if (user.status !== 'active') throw createError('Akun belum aktif atau diblokir.', 403)
+
+    await createOtpRecordAndSendMail({ userId: user.id, email: user.email, purpose: 'signin' })
+
+    return res.json({ message: 'OTP login telah dikirim ke email.' })
+  } catch (error) {
+    return next(error)
+  }
+}
+
+/** Signin step 2: verifikasi OTP, lalu issue access token + refresh cookie/session */
+export async function verifySignin(req, res, next) {
+  try {
+    const { email = '', otp = '' } = req.body
+    const normalizedEmail = email.trim().toLowerCase()
+
+    if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Format email tidak valid.', 400)
+    if (!/^\d{6}$/.test(otp)) throw createError('OTP harus 6 digit angka.', 400)
+
+    const [rows] = await pool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
+    const user = rows[0]
+    if (!user) throw createError('Email tidak ditemukan.', 404)
+
+    await verifyOtpOrThrow({ userId: user.id, email: user.email, purpose: 'signin', otpInput: otp })
+
+    const accessToken = issueAccessToken(user)
+    await createSession(user, req, res)
+
+    return res.json({
+      message: 'Login berhasil.',
+      token: accessToken,
+      user: buildPublicUser(user),
+    })
+  } catch (error) {
+    return next(error)
+  }
+}
+
+/** Resend OTP untuk purpose: signup/signin/reset */
+export async function resendOtp(req, res, next) {
+  try {
+    const { email = '', purpose = 'signup' } = req.body
+    const normalizedEmail = email.trim().toLowerCase()
+
+    if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Format email tidak valid.', 400)
+    if (!ALLOWED_PURPOSES.has(purpose)) throw createError('Purpose OTP tidak valid.', 400)
+
+    const [rows] = await pool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
+    const user = rows[0]
+    if (!user) throw createError('Email tidak ditemukan.', 404)
+
+    await createOtpRecordAndSendMail({ userId: user.id, email: user.email, purpose })
+    return res.json({ message: 'OTP baru telah dikirim.' })
+  } catch (error) {
+    return next(error)
+  }
+}
+
+/** Forgot password: kirim OTP reset jika email ada */
+export async function forgotPassword(req, res, next) {
+  try {
+    const { email = '' } = req.body
+    const normalizedEmail = email.trim().toLowerCase()
+
+    if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Format email tidak valid.', 400)
+
+    const [rows] = await pool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
+    const user = rows[0]
+
+    if (user) {
+      await createOtpRecordAndSendMail({ userId: user.id, email: user.email, purpose: 'reset_password' })
+    }
+
+    return res.json({ message: 'Jika email terdaftar, OTP reset telah dikirim.' })
+  } catch (error) {
+    return next(error)
+  }
+}
+
+/** Reset password: verifikasi OTP reset lalu update password_hash */
+export async function resetPassword(req, res, next) {
+  try {
+    const { email = '', otp = '', password = '', confirmPassword = '' } = req.body
+    const normalizedEmail = email.trim().toLowerCase()
+
+    if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Format email tidak valid.', 400)
+    if (!/^\d{6}$/.test(otp)) throw createError('OTP harus 6 digit angka.', 400)
+    if (password.length < 8) throw createError('Password minimal 8 karakter.', 400)
+    if (password !== confirmPassword) throw createError('Konfirmasi password tidak cocok.', 400)
+
+    const [rows] = await pool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
+    const user = rows[0]
+    if (!user) throw createError('Email tidak ditemukan.', 404)
+
+    await verifyOtpOrThrow({ userId: user.id, email: user.email, purpose: 'reset_password', otpInput: otp })
+
+    const newHash = await bcrypt.hash(password, 12)
+    debugLog('PASSWORD_HASH_UPDATED', { userId: user.id })
+
+    await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, user.id])
+    return res.json({ message: 'Password berhasil diperbarui.' })
+  } catch (error) {
+    return next(error)
+  }
+}
+
+/** Logout: hapus session berdasarkan refresh token cookie */
+export async function logout(req, res, next) {
+  try {
+    const refreshToken = req.cookies?.refresh_token || null
+
+    if (refreshToken) {
+      const refreshHash = sha256(refreshToken)
+      const [result] = await pool.query('DELETE FROM sessions WHERE refresh_token_hash = ?', [refreshHash])
+      debugLog('DB_DELETE_SESSION', { affectedRows: result.affectedRows })
+    }
+
+    res.clearCookie('refresh_token')
+    return res.json({ message: 'Logout berhasil.' })
+  } catch (error) {
+    return next(error)
+  }
+}
+
+/** Get current user profile dari JWT */
+export async function me(req, res, next) {
+  try {
+    const [rows] = await pool.query('SELECT * FROM users WHERE id = ? LIMIT 1', [req.user.id])
+    const user = rows[0]
+    if (!user) throw createError('User tidak ditemukan.', 404)
+
+    return res.json({ user: buildPublicUser(user) })
+  } catch (error) {
+    return next(error)
+  }
+}
+
+
+// Alias kompatibilitas untuk kode lama yang memanggil `register`/`login`.
+export const register = signup
+export const login = signin
