@@ -33,14 +33,14 @@ function isStepDone(application, index) {
 }
 
 export default function StudentDashboard() {
-  const [application, setApplication] = useState(null)
+  const [current, setCurrent] = useState({ application: null, profile: null, documents: [], documentSummary: null })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const session = getStoredSession()
 
   useEffect(() => {
     getCurrentStudentApplication()
-      .then(setApplication)
+      .then(setCurrent)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
   }, [])
@@ -48,8 +48,11 @@ export default function StudentDashboard() {
   if (loading) return <DashboardLayout><div className="rounded-3xl bg-white p-6 shadow-sm">Memuat dashboard...</div></DashboardLayout>
   if (error) return <DashboardLayout><div role="alert" className="rounded-3xl bg-red-50 p-6 text-sm text-red-700">{error}</div></DashboardLayout>
 
-  const name = application?.namaLengkap || session?.user?.name || 'Mahasiswa'
-  const documentText = application ? `${application.documentSummary.uploadedCount}/${application.documentSummary.requiredCount} dokumen` : 'Belum ada dokumen'
+  const summary = current.application?.documentSummary || current.documentSummary
+  const application = current.application ? { ...current.application, documentSummary: summary } : null
+  const profile = current.profile
+  const name = profile?.namaLengkap || session?.user?.name || 'Mahasiswa'
+  const documentText = application ? `${summary?.uploadedCount || 0}/${summary?.requiredCount || 5} dokumen` : '0/5 dokumen'
 
   return (
     <DashboardLayout>
@@ -63,7 +66,7 @@ export default function StudentDashboard() {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">Status Pendaftaran</p><p className="mt-2 text-xl font-bold text-slate-950">{applicationStatusLabels[application?.status] || 'Belum Daftar'}</p>{application?.catatanAdmin && <p className="mt-2 text-sm text-amber-700">{application.catatanAdmin}</p>}</div>
-        <div className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">Kelengkapan Dokumen</p><p className="mt-2 text-xl font-bold text-slate-950">{documentText}</p>{application?.documentSummary?.missing?.length > 0 && <p className="mt-2 text-sm text-amber-700">Kurang: {application.documentSummary.missing.join(', ')}</p>}</div>
+        <div className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">Kelengkapan Dokumen</p><p className="mt-2 text-xl font-bold text-slate-950">{documentText}</p>{summary?.missing?.length > 0 && <p className="mt-2 text-sm text-amber-700">Kurang: {summary.missing.join(', ')}</p>}</div>
         <div className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">Bidang Magang</p><p className="mt-2 text-xl font-bold text-slate-950">{application?.bidangMagang || 'Belum dipilih'}</p></div>
         <div className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">Periode Magang</p><p className="mt-2 text-xl font-bold text-slate-950">{application ? `${application.periodeMulai} s.d. ${application.periodeSelesai}` : 'Belum ditentukan'}</p></div>
       </section>

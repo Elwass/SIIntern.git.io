@@ -23,17 +23,23 @@ export default function AdminApplicationsPage() {
   const loadRows = async () => {
     try { const result = await listAdminApplications(filters); setRows(result.data); if (result.data[0] && !selected) loadDetail(result.data[0].id) } catch (err) { setError(err.message) }
   }
-  const loadDetail = async (id) => { try { setSelected(await getAdminApplication(id)); setNote('') } catch (err) { setError(err.message) } }
+  const loadDetail = async (id) => {
+    try {
+      const detail = await getAdminApplication(id)
+      setSelected({ ...detail.application, ...detail.profile, email: detail.user?.email || '', documents: detail.documents || [], mentors: detail.mentors || [], mentor: detail.mentor })
+      setNote('')
+    } catch (err) { setError(err.message) }
+  }
   useEffect(() => { loadRows() }, [])
 
   const changeStatus = async (status) => {
-    try { const result = await updateAdminApplicationStatus(selected.id, { status, catatanAdmin: note }); setSelected(result); await loadRows() } catch (err) { setError(err.message) }
+    try { const result = await updateAdminApplicationStatus(selected.id, { status, catatanAdmin: note }); setSelected({ ...result.application, ...result.profile, email: result.user?.email || '', documents: result.documents || [], mentors: result.mentors || [], mentor: result.mentor }); await loadRows() } catch (err) { setError(err.message) }
   }
   const changeDocumentStatus = async (documentId, status) => {
     try { await updateAdminDocumentStatus(selected.id, documentId, { status, catatanAdmin: note }); await loadDetail(selected.id) } catch (err) { setError(err.message) }
   }
   const assignMentor = async () => {
-    try { const result = await assignApplicationMentor(selected.id, Number(mentorId)); setSelected(result); await loadRows() } catch (err) { setError(err.message) }
+    try { const result = await assignApplicationMentor(selected.id, Number(mentorId)); setSelected({ ...result.application, ...result.profile, email: result.user?.email || '', documents: result.documents || [], mentors: result.mentors || [], mentor: result.mentor }); await loadRows() } catch (err) { setError(err.message) }
   }
 
   return (
@@ -51,7 +57,7 @@ export default function AdminApplicationsPage() {
       </section>
       <div className="grid gap-4 xl:grid-cols-[1fr_1.1fr]">
         <section className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm">
-          <table className="w-full text-left text-sm"><thead className="bg-slate-50 text-slate-600"><tr><th className="p-3">Nama</th><th>NIM</th><th>Bidang</th><th>Status</th><th>Aksi</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id} className="border-t"><td className="p-3 font-semibold">{row.namaLengkap}<p className="text-xs font-normal text-slate-500">{row.kampus}</p></td><td>{row.nim}</td><td>{row.bidangMagang}</td><td>{applicationStatusLabels[row.status]}</td><td><button onClick={() => loadDetail(row.id)} className="font-semibold text-red-700">Detail</button></td></tr>)}</tbody></table>
+          <table className="w-full text-left text-sm"><thead className="bg-slate-50 text-slate-600"><tr><th className="p-3">Nama</th><th>NIM</th><th>Bidang</th><th>Status</th><th>Aksi</th></tr></thead><tbody>{rows.length === 0 ? <tr><td colSpan="5" className="p-6 text-center text-slate-600">Belum ada pendaftaran magang yang masuk.</td></tr> : rows.map((row) => <tr key={row.id} className="border-t"><td className="p-3 font-semibold">{row.namaLengkap}<p className="text-xs font-normal text-slate-500">{row.kampus}</p></td><td>{row.nim}</td><td>{row.bidangMagang}</td><td>{applicationStatusLabels[row.status]}</td><td><button onClick={() => loadDetail(row.id)} className="font-semibold text-red-700">Detail</button></td></tr>)}</tbody></table>
         </section>
         {selected && (
           <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
@@ -60,7 +66,7 @@ export default function AdminApplicationsPage() {
             <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Catatan admin / catatan dokumen" className="mt-5 w-full rounded-xl border p-3 text-sm" rows="3" />
             <div className="mt-4 flex flex-wrap gap-2"><button onClick={() => changeStatus('needs_revision')} className="rounded-xl bg-amber-600 px-3 py-2 text-xs font-semibold text-white">Minta Perbaikan</button><button onClick={() => changeStatus('verified')} className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-semibold text-white">Verifikasi</button><button onClick={() => changeStatus('accepted')} className="rounded-xl bg-red-700 px-3 py-2 text-xs font-semibold text-white">Terima</button><button onClick={() => changeStatus('rejected')} className="rounded-xl bg-slate-700 px-3 py-2 text-xs font-semibold text-white">Tolak</button></div>
             <div className="mt-5"><h3 className="font-bold">Dokumen</h3><div className="mt-2 space-y-2">{selected.documents.map((doc) => <div key={doc.id} className="rounded-2xl border p-3 text-sm"><div className="flex justify-between gap-3"><a href={doc.fileUrl} className="font-semibold text-red-700">{doc.jenisDokumen}</a><span>{documentStatusLabels[doc.status]}</span></div><p className="text-slate-500">{doc.fileName}</p>{doc.catatanAdmin && <p className="text-amber-700">{doc.catatanAdmin}</p>}<div className="mt-2 flex gap-2"><button onClick={() => changeDocumentStatus(doc.id, 'verified')} className="text-xs font-semibold text-emerald-700">Verifikasi</button><button onClick={() => changeDocumentStatus(doc.id, 'needs_revision')} className="text-xs font-semibold text-amber-700">Perbaikan</button><button onClick={() => changeDocumentStatus(doc.id, 'rejected')} className="text-xs font-semibold text-red-700">Tolak</button></div></div>)}</div></div>
-            {selected.status === 'accepted' && <div className="mt-5 flex gap-2"><input value={mentorId} onChange={(e) => setMentorId(e.target.value)} className="rounded-xl border p-3 text-sm" placeholder="ID Mentor" /><button onClick={assignMentor} className="rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white">Assign Mentor</button></div>}
+            {selected.status === 'accepted' && <div className="mt-5 flex gap-2"><select value={mentorId} onChange={(e) => setMentorId(e.target.value)} className="rounded-xl border p-3 text-sm"><option value="">Pilih mentor</option>{selected.mentors.map((mentor) => <option key={mentor.id} value={mentor.id}>{mentor.name}</option>)}</select><button onClick={assignMentor} className="rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white">Assign Mentor</button></div>}
           </section>
         )}
       </div>

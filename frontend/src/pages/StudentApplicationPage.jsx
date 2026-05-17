@@ -5,12 +5,14 @@ import {
   createStudentApplication,
   deleteStudentDocument,
   documentStatusLabels,
+  documentTypeLabels,
   getApplicationOptions,
   getCurrentStudentApplication,
   submitStudentApplication,
   updateStudentApplication,
   uploadStudentDocument,
 } from '../services/applications'
+import { getStoredSession } from '../services/auth'
 
 const emptyForm = {
   namaLengkap: '', nim: '', kampus: '', programStudi: '', semester: '', email: '', noHp: '', alamat: '',
@@ -18,31 +20,42 @@ const emptyForm = {
 }
 
 function canEdit(status) { return !status || ['draft', 'needs_revision'].includes(status) }
-function statusText(status) { return applicationStatusLabels[status] || 'Belum Ada Pendaftaran' }
+function statusText(status) { return applicationStatusLabels[status] || 'Belum Diajukan' }
+function readFileBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result).split(',')[1] || '')
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
 
 export default function StudentApplicationPage() {
   const [options, setOptions] = useState({ internshipFields: [], requiredDocumentTypes: [] })
-  const [application, setApplication] = useState(null)
+  const [current, setCurrent] = useState({ application: null, profile: null, documents: [] })
   const [form, setForm] = useState(emptyForm)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
+  const application = current.application
+  const documents = current.documents || []
   const editable = canEdit(application?.status)
 
   const loadData = async () => {
     setLoading(true)
     setError('')
     try {
-      const [optionData, current] = await Promise.all([getApplicationOptions(), getCurrentStudentApplication()])
+      const [optionData, currentData] = await Promise.all([getApplicationOptions(), getCurrentStudentApplication()])
+      const session = getStoredSession()
       setOptions(optionData)
-      setApplication(current)
-      setForm(current ? {
-        namaLengkap: current.namaLengkap || '', nim: current.nim || '', kampus: current.kampus || '', programStudi: current.programStudi || '',
-        semester: current.semester || '', email: current.email || '', noHp: current.noHp || '', alamat: current.alamat || '',
-        bidangMagang: current.bidangMagang || '', periodeMulai: current.periodeMulai || '', periodeSelesai: current.periodeSelesai || '', motivasi: current.motivasi || '',
-      } : emptyForm)
+      setCurrent(currentData)
+      setForm(currentData.application ? {
+        namaLengkap: currentData.profile?.namaLengkap || '', nim: currentData.profile?.nim || '', kampus: currentData.profile?.kampus || '', programStudi: currentData.profile?.programStudi || '',
+        semester: currentData.profile?.semester || '', email: session?.user?.email || '', noHp: currentData.profile?.noHp || '', alamat: currentData.profile?.alamat || '',
+        bidangMagang: currentData.application.bidangMagang || '', periodeMulai: currentData.application.periodeMulai || '', periodeSelesai: currentData.application.periodeSelesai || '', motivasi: currentData.application.motivasi || '',
+      } : { ...emptyForm, email: session?.user?.email || '' })
     } catch (err) {
       setError(err.message)
     } finally {
@@ -58,7 +71,7 @@ export default function StudentApplicationPage() {
     setSaving(true); setError(''); setSuccess('')
     try {
       const result = application ? await updateStudentApplication(application.id, form) : await createStudentApplication(form)
-      setApplication(result)
+      setCurrent(result)
       setSuccess('Draft pendaftaran berhasil disimpan.')
     } catch (err) { setError(err.message) } finally { setSaving(false) }
   }
@@ -67,8 +80,8 @@ export default function StudentApplicationPage() {
     setSaving(true); setError(''); setSuccess('')
     try {
       const saved = application ? await updateStudentApplication(application.id, form) : await createStudentApplication(form)
-      const submitted = await submitStudentApplication(saved.id)
-      setApplication(submitted)
+      const submitted = await submitStudentApplication(saved.application.id)
+      setCurrent(submitted)
       setSuccess('Pendaftaran berhasil diajukan dan menunggu verifikasi admin.')
     } catch (err) { setError(err.message) } finally { setSaving(false) }
   }
@@ -77,7 +90,8 @@ export default function StudentApplicationPage() {
     if (!file || !application) return
     setError(''); setSuccess('')
     try {
-      await uploadStudentDocument(application.id, { jenisDokumen, fileName: file.name, fileSize: file.size, mimeType: file.type })
+      const fileContentBase64 = await readFileBase64(file)
+      await uploadStudentDocument(application.id, { jenisDokumen, fileName: file.name, fileSize: file.size, mimeType: file.type, fileContentBase64 })
       setSuccess(`${jenisDokumen} berhasil diunggah.`)
       await loadData()
     } catch (err) { setError(err.message) }
@@ -132,11 +146,11 @@ export default function StudentApplicationPage() {
           {!application && <p className="mt-2 text-sm text-slate-600">Simpan draft terlebih dahulu sebelum mengunggah dokumen.</p>}
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             {options.requiredDocumentTypes.map((type) => {
-              const document = application?.documents?.find((item) => item.jenisDokumen === type)
+              const document = documents.find((item) => item.jenisDokumen === type)
               return (
                 <div key={type} className="rounded-2xl border border-slate-100 p-4 text-sm">
                   <div className="flex items-start justify-between gap-3">
-                    <div><p className="font-semibold text-slate-950">{type}</p>{document && <p className="mt-1 text-slate-500">{document.fileName} • {documentStatusLabels[document.status]}</p>}{document?.catatanAdmin && <p className="mt-1 text-amber-700">Catatan: {document.catatanAdmin}</p>}</div>
+                    <div><p className="font-semibold text-slate-950">{documentTypeLabels[type]}</p>{document ? <p className="mt-1 text-slate-500">{document.fileName} • {documentStatusLabels[document.status]}</p> : <p className="mt-1 text-slate-500">Belum diunggah</p>}{document?.catatanAdmin && <p className="mt-1 text-amber-700">Catatan: {document.catatanAdmin}</p>}</div>
                     {document && editable && <button type="button" onClick={() => removeDocument(document.id)} className="text-xs font-semibold text-red-700">Hapus</button>}
                   </div>
                   {application && editable && <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(event) => handleFile(type, event.target.files?.[0])} className="mt-3 w-full text-xs" />}

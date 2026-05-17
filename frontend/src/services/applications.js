@@ -10,6 +10,15 @@ export const applicationStatusLabels = {
   cancelled: 'Dibatalkan',
 }
 
+
+export const documentTypeLabels = {
+  surat_pengantar_kampus: 'Surat Pengantar Kampus',
+  curriculum_vitae: 'Curriculum Vitae',
+  kartu_tanda_mahasiswa: 'Kartu Tanda Mahasiswa',
+  pas_foto: 'Pas Foto',
+  transkrip_nilai: 'Transkrip Nilai',
+}
+
 export const documentStatusLabels = {
   uploaded: 'Diunggah',
   verified: 'Terverifikasi',
