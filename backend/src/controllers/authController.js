@@ -1,5 +1,5 @@
 import crypto from 'node:crypto'
-import bcrypt from 'bcryptjs'
+import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import nodemailer from 'nodemailer'
 import { pool } from '../config/db.js'
@@ -19,7 +19,7 @@ const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex'
 const mailer = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: Number(process.env.SMTP_PORT || 587),
-  secure: false,
+  secure: String(process.env.SMTP_SECURE || 'false') === 'true',
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,

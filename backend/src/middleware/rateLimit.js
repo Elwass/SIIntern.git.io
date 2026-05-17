@@ -1,17 +1,16 @@
-const hits = new Map()
+import { rateLimit as expressRateLimit } from 'express-rate-limit'
 
+// Rate limiter sederhana berbasis IP + window + max request
 export function rateLimit({ windowMs = 10 * 60 * 1000, max = 100 } = {}) {
-  return (req, res, next) => {
-    const key = `${req.ip}:${req.path}`
-    const now = Date.now()
-    const item = hits.get(key) || { count: 0, resetAt: now + windowMs }
-    if (now > item.resetAt) {
-      item.count = 0
-      item.resetAt = now + windowMs
-    }
-    item.count += 1
-    hits.set(key, item)
-    if (item.count > max) return res.status(429).json({ message: 'Terlalu banyak permintaan. Coba lagi nanti.' })
-    return next()
-  }
+  return expressRateLimit({
+    windowMs,
+    max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: 'Terlalu banyak permintaan. Coba lagi nanti.' },
+    handler: (req, res, _next, options) => {
+      console.warn('[RATE_LIMIT]', { ip: req.ip, path: req.path, windowMs, max })
+      return res.status(options.statusCode).json(options.message)
+    },
+  })
 }
