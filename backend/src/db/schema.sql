@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS email_otps (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
   email VARCHAR(190) NOT NULL,
-  purpose ENUM('signup','signin','reset_password') NOT NULL,
+  purpose ENUM('signup','signin','reset') NOT NULL,
   otp_hash VARCHAR(255) NOT NULL,
   expires_at DATETIME NOT NULL,
   used_at DATETIME NULL,
