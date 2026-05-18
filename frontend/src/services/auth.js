@@ -2,6 +2,7 @@ const SESSION_KEY = 'siintern.auth'
 
 export const roleRedirectMap = {
   admin: '/admin',
+  pembimbing_lapangan: '/admin',
   mentor: '/mentor',
   student: '/student',
 }

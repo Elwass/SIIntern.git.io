@@ -40,13 +40,14 @@ export default function LoginPage() {
       persistSession(
         {
           token: result.token,
-          role: result.role,
+          role: result.role || result.user?.role,
           user: result.user,
         },
         rememberMe,
       )
 
-      const redirectPath = location.state?.from?.pathname || getDashboardPath(result.role)
+      const effectiveRole = result.role || result.user?.role
+      const redirectPath = location.state?.from?.pathname || getDashboardPath(effectiveRole)
       navigate(redirectPath, { replace: true })
     } catch (err) {
       setError(err.message || 'Login gagal. Silakan coba lagi.')

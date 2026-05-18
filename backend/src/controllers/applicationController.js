@@ -24,8 +24,11 @@ export function setApplicationRepositoriesForTests(repositories = {}) {
 }
 
 function error(res, status, message, details) { return res.status(status).json({ message, ...(details ? { details } : {}) }) }
-function requireRole(req, res, role) {
-  if (req.user?.role !== role) { error(res, 403, 'Akses ditolak untuk peran pengguna ini.'); return false }
+function requireRoles(req, res, roles = []) {
+  if (!roles.includes(req.user?.role)) {
+    error(res, 403, 'Akses ditolak untuk peran pengguna ini.')
+    return false
+  }
   return true
 }
 function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) }
@@ -76,14 +79,14 @@ async function saveUploadedFile(applicationId, jenisDokumen, fileName, base64 = 
 export const getApplicationOptions = (_, res) => res.json({ internshipFields, requiredDocumentTypes, applicationStatuses, documentStatuses })
 
 export const getCurrentStudentApplication = async (req, res) => {
-  if (!requireRole(req, res, 'student')) return null
+  if (!requireRoles(req, res, ['student'])) return null
   const [profile, application] = await Promise.all([applications.getStudentProfile(req.user.id), applications.getCurrentApplication(req.user.id)])
   const documents = application ? await applications.listDocuments(application.id) : []
   return res.json(composeCurrent(profile, application ? { ...application, documentSummary: documentSummary(documents) } : null, documents))
 }
 
 export const createStudentApplication = async (req, res) => {
-  if (!requireRole(req, res, 'student')) return null
+  if (!requireRoles(req, res, ['student'])) return null
   const current = await applications.getCurrentApplication(req.user.id)
   if (current) return error(res, 409, 'Anda sudah memiliki pendaftaran aktif.')
   const payload = pickPayload(req.body)
@@ -96,7 +99,7 @@ export const createStudentApplication = async (req, res) => {
 }
 
 export const updateStudentApplication = async (req, res) => {
-  if (!requireRole(req, res, 'student')) return null
+  if (!requireRoles(req, res, ['student'])) return null
   const application = await getStudentOwnedApplication(req, res)
   if (!application || !assertEditable(application, res)) return null
   const payload = pickPayload(req.body)
@@ -109,7 +112,7 @@ export const updateStudentApplication = async (req, res) => {
 }
 
 export const createStudentApplicationDocument = async (req, res) => {
-  if (!requireRole(req, res, 'student')) return null
+  if (!requireRoles(req, res, ['student'])) return null
   const application = await getStudentOwnedApplication(req, res)
   if (!application || !assertEditable(application, res)) return null
   const jenisDokumen = req.body.jenisDokumen
@@ -126,14 +129,14 @@ export const createStudentApplicationDocument = async (req, res) => {
 }
 
 export const getStudentApplicationDocuments = async (req, res) => {
-  if (!requireRole(req, res, 'student')) return null
+  if (!requireRoles(req, res, ['student'])) return null
   const application = await getStudentOwnedApplication(req, res)
   if (!application) return null
   return res.json(await applications.listDocuments(application.id))
 }
 
 export const deleteStudentApplicationDocument = async (req, res) => {
-  if (!requireRole(req, res, 'student')) return null
+  if (!requireRoles(req, res, ['student'])) return null
   const application = await getStudentOwnedApplication(req, res)
   if (!application || !assertEditable(application, res)) return null
   const deleted = await applications.deleteDocument(application.id, req.params.documentId)
@@ -142,7 +145,7 @@ export const deleteStudentApplicationDocument = async (req, res) => {
 }
 
 export const submitStudentApplication = async (req, res) => {
-  if (!requireRole(req, res, 'student')) return null
+  if (!requireRoles(req, res, ['student'])) return null
   const application = await getStudentOwnedApplication(req, res)
   if (!application || !assertEditable(application, res)) return null
   const profile = await applications.getStudentProfile(req.user.id)
@@ -155,20 +158,20 @@ export const submitStudentApplication = async (req, res) => {
 }
 
 export const listAdminApplications = async (req, res) => {
-  if (!requireRole(req, res, 'admin')) return null
+  if (!requireRoles(req, res, ['admin', 'pembimbing_lapangan'])) return null
   const { data, total } = await applications.listAdminApplications({ status: req.query.status, bidangMagang: req.query.bidang_magang, search: req.query.search, page: req.query.page, limit: req.query.limit })
   return res.json({ data, meta: { page: Number(req.query.page || 1), limit: Number(req.query.limit || 10), total } })
 }
 
 export const getAdminApplicationDetail = async (req, res) => {
-  if (!requireRole(req, res, 'admin')) return null
+  if (!requireRoles(req, res, ['admin', 'pembimbing_lapangan'])) return null
   const detail = await applications.getApplicationDetail(req.params.id)
   if (!detail) return error(res, 404, 'Pendaftaran magang tidak ditemukan.')
   return res.json({ ...detail, application: { ...detail.application, documentSummary: documentSummary(detail.documents) }, mentors: await users.listMentors() })
 }
 
 export const updateAdminApplicationStatus = async (req, res) => {
-  if (!requireRole(req, res, 'admin')) return null
+  if (!requireRoles(req, res, ['admin', 'pembimbing_lapangan'])) return null
   const application = await applications.getApplicationById(req.params.id)
   if (!application) return error(res, 404, 'Pendaftaran magang tidak ditemukan.')
   const nextStatus = req.body.status
@@ -180,7 +183,7 @@ export const updateAdminApplicationStatus = async (req, res) => {
 }
 
 export const updateAdminDocumentStatus = async (req, res) => {
-  if (!requireRole(req, res, 'admin')) return null
+  if (!requireRoles(req, res, ['admin', 'pembimbing_lapangan'])) return null
   if (!['verified', 'needs_revision', 'rejected'].includes(req.body.status)) return error(res, 400, 'Status dokumen tidak valid.')
   const document = await applications.updateDocumentStatus(req.params.id, req.params.documentId, req.body.status, req.body.catatanAdmin?.trim() || '')
   if (!document) return error(res, 404, 'Dokumen tidak ditemukan.')
@@ -190,7 +193,7 @@ export const updateAdminDocumentStatus = async (req, res) => {
 }
 
 export const assignApplicationMentor = async (req, res) => {
-  if (!requireRole(req, res, 'admin')) return null
+  if (!requireRoles(req, res, ['admin', 'pembimbing_lapangan'])) return null
   const application = await applications.getApplicationById(req.params.id)
   if (!application) return error(res, 404, 'Pendaftaran magang tidak ditemukan.')
   if (!['accepted', 'verified'].includes(application.status)) return error(res, 400, 'Mentor hanya dapat ditetapkan untuk pendaftaran terverifikasi atau diterima.')
@@ -202,12 +205,12 @@ export const assignApplicationMentor = async (req, res) => {
 }
 
 export const listMentorApplications = async (req, res) => {
-  if (!requireRole(req, res, 'mentor')) return null
+  if (!requireRoles(req, res, ['mentor', 'pembimbing_lapangan'])) return null
   return res.json(await applications.listMentorApplications(req.user.id))
 }
 
 export const getMentorApplicationDetail = async (req, res) => {
-  if (!requireRole(req, res, 'mentor')) return null
+  if (!requireRoles(req, res, ['mentor', 'pembimbing_lapangan'])) return null
   const detail = await applications.getApplicationDetail(req.params.id)
   if (!detail || detail.application.mentorId !== req.user.id || detail.application.status !== 'accepted') return error(res, 403, 'Mentor tidak memiliki akses ke pendaftaran ini.')
   return res.json({ ...detail, application: { ...detail.application, documentSummary: documentSummary(detail.documents) } })
