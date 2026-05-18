@@ -200,19 +200,22 @@ export async function verifySignup(req, res, next) {
     const { email = '', otp = '' } = req.body
     const normalizedEmail = email.trim().toLowerCase()
 
-    if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Format email tidak valid.', 400)
-    if (!/^\d{6}$/.test(otp)) throw createError('OTP harus 6 digit angka.', 400)
+    if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Invalid OTP or account not found.', 400)
+    if (!/^\d{6}$/.test(otp)) throw createError('Invalid OTP or account not found.', 400)
 
     const [rows] = await pool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
     const user = rows[0]
-    if (!user) throw createError('Email tidak ditemukan.', 404)
+    if (!user) throw createError('Invalid OTP or account not found.', 404)
 
     const otpRow = await verifyOtpOrThrow({ userId: user.id, email: user.email, purpose: 'signup', otpInput: otp })
     await pool.query(`UPDATE users SET status = 'active', email_verified_at = NOW() WHERE id = ?`, [user.id])
     await pool.query('DELETE FROM email_otps WHERE id = ?', [otpRow.id])
 
-    return res.json({ message: 'Akun berhasil diaktifkan, silakan login.' })
+    return res.json({ message: 'Account activated, you can now login.' })
   } catch (error) {
+    if (error.statusCode === 400 || error.statusCode === 404 || error.statusCode === 410 || error.statusCode === 429) {
+      return res.status(400).json({ error: 'Invalid OTP or account not found.' })
+    }
     return next(error)
   }
 }
@@ -235,12 +238,7 @@ export async function signin(req, res, next) {
     const passwordMatch = await bcrypt.compare(password, user.password_hash)
     if (!passwordMatch) throw createError('Password salah.', 401)
     if (user.status === 'pending') {
-      await createOtpRecordAndSendMail({ userId: user.id, email: user.email, purpose: 'signup' })
-      return res.status(403).json({
-        success: false,
-        code: 'EMAIL_NOT_VERIFIED',
-        message: 'Akun belum aktif. OTP verifikasi baru sudah dikirim ke email.',
-      })
+      return res.status(403).json({ error: 'Account not active. Please verify your OTP.' })
     }
     if (user.status === 'blocked') throw createError('Akun diblokir. Hubungi admin.', 403)
 
