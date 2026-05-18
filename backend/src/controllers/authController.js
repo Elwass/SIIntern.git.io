@@ -221,8 +221,9 @@ export async function verifySignup(req, res, next) {
   }
 }
 
-// Alias for clients/routes that use /verify-otp.
-export const verifyOtp = verifySignup
+export async function verifyOtp(req, res, next) {
+  return verifySignup(req, res, next)
+}
 
 export async function signin(req, res, next) {
   try {
@@ -275,7 +276,8 @@ export async function verifySignin(req, res, next) {
       return res.status(403).json({ error: 'Account is blocked. Contact admin.' })
     }
 
-    await verifyOtpOrThrow({ userId: user.id, email: user.email, purpose: 'signin', otpInput: otp })
+    const otpRow = await verifyOtpOrThrow({ userId: user.id, email: user.email, purpose: 'signin', otpInput: otp })
+    await pool.query('UPDATE email_otps SET used_at = NOW() WHERE id = ?', [otpRow.id])
 
     const accessToken = issueAccessToken(user)
     await createSession(user, req, res)
@@ -344,7 +346,8 @@ export async function resetPassword(req, res, next) {
     const user = rows[0]
     if (!user) throw createError('Email tidak ditemukan.', 404)
 
-    await verifyOtpOrThrow({ userId: user.id, email: user.email, purpose: 'reset_password', otpInput: otp })
+    const otpRow = await verifyOtpOrThrow({ userId: user.id, email: user.email, purpose: 'reset_password', otpInput: otp })
+    await pool.query('UPDATE email_otps SET used_at = NOW() WHERE id = ?', [otpRow.id])
 
     const newHash = await bcrypt.hash(password, 12)
     await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, user.id])
