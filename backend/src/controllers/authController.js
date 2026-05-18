@@ -242,7 +242,7 @@ export async function signin(req, res, next) {
 
     // Only active users can proceed to login OTP.
     if (user.status === 'pending') {
-      return res.status(403).json({ error: 'Account not active. Please verify your OTP.' })
+      return res.status(403).json({ error: 'Account not active. Please verify OTP.' })
     }
     if (user.status === 'blocked') {
       return res.status(403).json({ error: 'Account is blocked. Contact admin.' })
@@ -267,6 +267,13 @@ export async function verifySignin(req, res, next) {
     const [rows] = await pool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
     const user = rows[0]
     if (!user) throw createError('Email tidak ditemukan.', 404)
+
+    if (user.status === 'pending') {
+      return res.status(403).json({ error: 'Account not active. Please verify OTP.' })
+    }
+    if (user.status === 'blocked') {
+      return res.status(403).json({ error: 'Account is blocked. Contact admin.' })
+    }
 
     await verifyOtpOrThrow({ userId: user.id, email: user.email, purpose: 'signin', otpInput: otp })
 
