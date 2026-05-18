@@ -73,7 +73,7 @@ function generateOtp6Digits() {
 // =========================
 async function sendOtpEmail(email, otp, purpose) {
   const purposeLabel = {
-    signup: 'Verifikasi Sign Up',
+    signup: 'Informasi Sign Up',
     signin: 'Verifikasi Sign In',
     reset_password: 'Reset Password',
   }[purpose]
@@ -94,7 +94,6 @@ async function createOtpRecordAndSendMail({ userId, email, purpose }) {
   const otpPlain = generateOtp6Digits()
   const otpHash = await bcrypt.hash(otpPlain, 10)
 
-  console.log('OTP yang dikirim:', { email, purpose, otp: otpPlain })
   debugLog('CREATE_OTP_HASHED', { userId, email, purpose })
 
   const [result] = await pool.query(
@@ -156,7 +155,6 @@ async function createSession(user, req, res) {
 // =========================
 export async function signup(req, res, next) {
   try {
-    console.log('payload register:', req.body)
     const { name = '', email = '', password = '', confirmPassword = '', confirm_password = '', passwordConfirmation = '' } = req.body
     const normalizedName = name.trim()
     const normalizedEmail = email.trim().toLowerCase()
@@ -165,7 +163,6 @@ export async function signup(req, res, next) {
     if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Format email tidak valid.', 400)
     if (password.length < 8) throw createError('Password minimal 8 karakter.', 400)
 
-    // Accept multiple common confirmation field names, but validate consistently.
     const finalConfirmPassword = confirmPassword || confirm_password || passwordConfirmation
     const hasConfirmationField = [confirmPassword, confirm_password, passwordConfirmation].some((value) => String(value).length > 0)
     if (hasConfirmationField && password !== finalConfirmPassword) {
@@ -173,23 +170,18 @@ export async function signup(req, res, next) {
     }
 
     const [existingRows] = await pool.query('SELECT id FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
-    debugLog('DB_SELECT_USER_BY_EMAIL', { email: normalizedEmail, found: existingRows.length > 0 })
     if (existingRows.length) throw createError('Email sudah terdaftar.', 409)
 
-    // Create account in pending status first.
     const passwordHash = await bcrypt.hash(password, 12)
     const [insertResult] = await pool.query(
-      `INSERT INTO users (name, email, password_hash, status, role)
-       VALUES (?, ?, ?, 'pending', 'student')`,
+      `INSERT INTO users (name, email, password_hash, status, role, email_verified_at)
+       VALUES (?, ?, ?, 'active', 'student', NOW())`,
       [normalizedName, normalizedEmail, passwordHash],
     )
-    debugLog('DB_INSERT_USER', { userId: insertResult.insertId, email: normalizedEmail })
 
-    // Generate and email OTP for signup activation.
     await createOtpRecordAndSendMail({ userId: insertResult.insertId, email: normalizedEmail, purpose: 'signup' })
     return res.status(201).json({ message: 'Registrasi berhasil. OTP telah dikirim ke email.' })
   } catch (error) {
-    console.error('Register error detail:', error)
     return next(error)
   }
 }
@@ -206,16 +198,10 @@ export async function verifySignup(req, res, next) {
     const user = rows[0]
     if (!user) throw createError('Email tidak ditemukan.', 404)
 
-    if (user.status === 'active') {
-      return res.json({ message: 'Akun sudah aktif. Silakan login.' })
-    }
-
     const otpRow = await verifyOtpOrThrow({ userId: user.id, email: user.email, purpose: 'signup', otpInput: otp })
-
-    await pool.query(`UPDATE users SET status = 'active', email_verified_at = NOW() WHERE id = ?`, [user.id])
     await pool.query('UPDATE email_otps SET used_at = NOW() WHERE id = ?', [otpRow.id])
 
-    return res.json({ message: 'Verifikasi berhasil. Akun sudah aktif dan siap digunakan untuk login.' })
+    return res.json({ message: 'OTP signup terverifikasi.' })
   } catch (error) {
     return next(error)
   }
@@ -227,7 +213,6 @@ export async function verifyOtp(req, res, next) {
 
 export async function signin(req, res, next) {
   try {
-    console.log('payload login:', req.body)
     const { email = '', password = '' } = req.body
     const normalizedEmail = email.trim().toLowerCase()
 
@@ -241,18 +226,15 @@ export async function signin(req, res, next) {
     const passwordMatch = await bcrypt.compare(password, user.password_hash)
     if (!passwordMatch) throw createError('Password salah.', 401)
 
-    // Only active users can proceed to login OTP.
-    if (user.status === 'pending') {
-      return res.status(403).json({ error: 'Account not active. Please verify OTP.' })
-    }
-    if (user.status === 'blocked') {
-      return res.status(403).json({ error: 'Account is blocked. Contact admin.' })
-    }
+    const accessToken = issueAccessToken(user)
+    await createSession(user, req, res)
 
-    await createOtpRecordAndSendMail({ userId: user.id, email: user.email, purpose: 'signin' })
-    return res.json({ message: 'OTP login telah dikirim ke email.' })
+    return res.json({
+      message: 'Login berhasil.',
+      token: accessToken,
+      user: buildPublicUser(user),
+    })
   } catch (error) {
-    console.error('Login error detail:', error)
     return next(error)
   }
 }
@@ -269,24 +251,10 @@ export async function verifySignin(req, res, next) {
     const user = rows[0]
     if (!user) throw createError('Email tidak ditemukan.', 404)
 
-    if (user.status === 'pending') {
-      return res.status(403).json({ error: 'Account not active. Please verify OTP.' })
-    }
-    if (user.status === 'blocked') {
-      return res.status(403).json({ error: 'Account is blocked. Contact admin.' })
-    }
-
     const otpRow = await verifyOtpOrThrow({ userId: user.id, email: user.email, purpose: 'signin', otpInput: otp })
     await pool.query('UPDATE email_otps SET used_at = NOW() WHERE id = ?', [otpRow.id])
 
-    const accessToken = issueAccessToken(user)
-    await createSession(user, req, res)
-
-    return res.json({
-      message: 'Login berhasil.',
-      token: accessToken,
-      user: buildPublicUser(user),
-    })
+    return res.json({ message: 'OTP signin terverifikasi.' })
   } catch (error) {
     return next(error)
   }
