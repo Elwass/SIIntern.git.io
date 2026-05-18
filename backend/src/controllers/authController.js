@@ -199,26 +199,24 @@ export async function verifySignup(req, res, next) {
     const { email = '', otp = '' } = req.body
     const normalizedEmail = email.trim().toLowerCase()
 
-    if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Invalid OTP or account not found.', 400)
-    if (!/^\d{6}$/.test(otp)) throw createError('Invalid OTP or account not found.', 400)
+    if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Format email tidak valid.', 400)
+    if (!/^\d{6}$/.test(otp)) throw createError('OTP harus 6 digit angka.', 400)
 
-    // Find account and ensure it exists.
     const [rows] = await pool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
     const user = rows[0]
-    if (!user) throw createError('Invalid OTP or account not found.', 404)
+    if (!user) throw createError('Email tidak ditemukan.', 404)
 
-    // Verify OTP specifically for signup purpose.
+    if (user.status === 'active') {
+      return res.json({ message: 'Akun sudah aktif. Silakan login.' })
+    }
+
     const otpRow = await verifyOtpOrThrow({ userId: user.id, email: user.email, purpose: 'signup', otpInput: otp })
 
-    // Activate account and remove consumed OTP record.
     await pool.query(`UPDATE users SET status = 'active', email_verified_at = NOW() WHERE id = ?`, [user.id])
-    await pool.query('DELETE FROM email_otps WHERE id = ?', [otpRow.id])
+    await pool.query('UPDATE email_otps SET used_at = NOW() WHERE id = ?', [otpRow.id])
 
-    return res.json({ message: 'Account activated, you can now login.' })
+    return res.json({ message: 'Verifikasi berhasil. Akun sudah aktif dan siap digunakan untuk login.' })
   } catch (error) {
-    if ([400, 404, 410, 429].includes(error.statusCode)) {
-      return res.status(400).json({ error: 'Invalid OTP or account not found.' })
-    }
     return next(error)
   }
 }
