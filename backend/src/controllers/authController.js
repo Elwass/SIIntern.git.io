@@ -115,7 +115,7 @@ async function verifyOtpOrThrow({ userId, email, purpose, otpInput }) {
   const otpRow = rows[0]
   if (!otpRow) throw createError('OTP tidak ditemukan.', 400)
   if (otpRow.attempts >= MAX_OTP_ATTEMPTS) throw createError('OTP melebihi batas percobaan (5x).', 429)
-  if (new Date(otpRow.expires_at) < new Date()) throw createError('OTP sudah kadaluarsa (10 menit).', 400)
+  if (new Date(otpRow.expires_at) < new Date()) throw createError('OTP sudah kadaluarsa (10 menit).', 410)
 
   const match = await bcrypt.compare(otpInput, otpRow.otp_hash)
   debugLog('OTP_COMPARE_RESULT', { otpId: otpRow.id, match })
@@ -124,6 +124,8 @@ async function verifyOtpOrThrow({ userId, email, purpose, otpInput }) {
     await pool.query('UPDATE email_otps SET attempts = attempts + 1 WHERE id = ?', [otpRow.id])
     throw createError('OTP salah.', 400)
   }
+
+  return otpRow
 }
 
 export async function forgotPassword(req, res, next) {
@@ -136,9 +138,10 @@ export async function forgotPassword(req, res, next) {
     const [rows] = await pool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
     const user = rows[0]
     if (user) await createOtpRecordAndSendMail({ userId: user.id, email: user.email, purpose: 'reset_password' })
-
-  await pool.query('UPDATE email_otps SET used_at = NOW() WHERE id = ?', [otpRow.id])
-  debugLog('OTP_MARKED_USED', { otpId: otpRow.id })
+    return res.json({ message: 'Jika email terdaftar, OTP reset telah dikirim.' })
+  } catch (error) {
+    return next(error)
+  }
 }
 
 async function createSession(user, req, res) {
@@ -204,13 +207,17 @@ export async function verifySignup(req, res, next) {
     const user = rows[0]
     if (!user) throw createError('Email tidak ditemukan.', 404)
 
-    await verifyOtpOrThrow({ userId: user.id, email: user.email, purpose: 'signup', otpInput: otp })
+    const otpRow = await verifyOtpOrThrow({ userId: user.id, email: user.email, purpose: 'signup', otpInput: otp })
     await pool.query(`UPDATE users SET status = 'active', email_verified_at = NOW() WHERE id = ?`, [user.id])
-    return res.json({ message: 'Verifikasi email berhasil. Akun aktif.' })
+    await pool.query('DELETE FROM email_otps WHERE id = ?', [otpRow.id])
+
+    return res.json({ message: 'Akun berhasil diaktifkan, silakan login.' })
   } catch (error) {
     return next(error)
   }
 }
+
+export const verifyOtp = verifySignup
 
 export async function signin(req, res, next) {
   try {
@@ -291,26 +298,9 @@ export async function resendOtp(req, res, next) {
   }
 }
 
-export async function forgotPassword(req, res, next) {
-  try {
-    const { email = '' } = req.body
-    const normalizedEmail = email.trim().toLowerCase()
-
-    if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Format email tidak valid.', 400)
-
-    const [rows] = await pool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
-    const user = rows[0]
-    if (user) await createOtpRecordAndSendMail({ userId: user.id, email: user.email, purpose: 'reset_password' })
-
-    return res.json({ message: 'Jika email terdaftar, OTP reset telah dikirim.' })
-  } catch (error) {
-    return next(error)
-  }
-}
-
 export async function resetPassword(req, res, next) {
   try {
-    const { email = '', otp = '', password = '', confirmPassword = '' } = req.body
+    const { email = '', otp = '', password = '', confirmPassword = '', confirm_password = '', passwordConfirmation = '' } = req.body
     const normalizedEmail = email.trim().toLowerCase()
 
     if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Format email tidak valid.', 400)
