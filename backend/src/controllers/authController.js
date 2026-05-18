@@ -217,61 +217,7 @@ export async function verifySignup(req, res, next) {
   }
 }
 
-export async function verifyOtp(req, res, next) {
-  try {
-    return verifySignup(req, res, next)
-  } catch (error) {
-    return next(error)
-  }
-}
-
-export async function verifyOtp(req, res, next) {
-  try {
-    // 1) Ambil dan sanitasi input agar konsisten serta aman diproses.
-    const { email = '', otp = '' } = req.body
-    const normalizedEmail = String(email).trim().toLowerCase()
-    const normalizedOtp = String(otp).trim()
-
-    // 2) Validasi format dasar input sebelum query ke database.
-    if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Format email tidak valid.', 400)
-    if (!/^\d{6}$/.test(normalizedOtp)) throw createError('OTP tidak valid.', 400)
-
-    // 3) Cari user berdasarkan email (prepared statement untuk mencegah SQL injection).
-    const [rows] = await pool.query(
-      `SELECT id, email, status, otp_code, otp_created_at
-       FROM users
-       WHERE email = ?
-       LIMIT 1`,
-      [normalizedEmail],
-    )
-    const user = rows[0]
-    if (!user) throw createError('Email tidak ditemukan.', 404)
-
-    // 4) Pastikan OTP tersimpan dan cocok dengan input user.
-    if (!user.otp_code || user.otp_code !== normalizedOtp) throw createError('OTP tidak valid.', 400)
-
-    // 5) Cek masa berlaku OTP (10 menit dari otp_created_at).
-    if (!user.otp_created_at) throw createError('OTP tidak valid.', 400)
-    const otpCreatedAt = new Date(user.otp_created_at)
-    const expiresAt = new Date(otpCreatedAt.getTime() + OTP_EXPIRY_MINUTES * 60 * 1000)
-    if (expiresAt < new Date()) throw createError('OTP sudah kadaluarsa.', 410)
-
-    // 6) Aktivasi akun dan hapus OTP agar tidak bisa dipakai ulang.
-    await pool.query(
-      `UPDATE users
-       SET status = 'active',
-           otp_code = NULL,
-           otp_created_at = NULL
-       WHERE id = ?`,
-      [user.id],
-    )
-
-    // 7) Beri response sukses tanpa membocorkan nilai OTP.
-    return res.json({ message: 'Account activated successfully.' })
-  } catch (error) {
-    return next(error)
-  }
-}
+export const verifyOtp = verifySignup
 
 export async function signin(req, res, next) {
   try {
