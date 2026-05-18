@@ -124,6 +124,18 @@ async function verifyOtpOrThrow({ userId, email, purpose, otpInput }) {
     await pool.query('UPDATE email_otps SET attempts = attempts + 1 WHERE id = ?', [otpRow.id])
     throw createError('OTP salah.', 400)
   }
+}
+
+export async function forgotPassword(req, res, next) {
+  try {
+    const { email = '' } = req.body
+    const normalizedEmail = email.trim().toLowerCase()
+
+    if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Format email tidak valid.', 400)
+
+    const [rows] = await pool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
+    const user = rows[0]
+    if (user) await createOtpRecordAndSendMail({ userId: user.id, email: user.email, purpose: 'reset_password' })
 
   await pool.query('UPDATE email_otps SET used_at = NOW() WHERE id = ?', [otpRow.id])
   debugLog('OTP_MARKED_USED', { otpId: otpRow.id })
@@ -153,8 +165,12 @@ export async function signup(req, res, next) {
     if (!normalizedName) throw createError('Nama wajib diisi.', 400)
     if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Format email tidak valid.', 400)
     if (password.length < 8) throw createError('Password minimal 8 karakter.', 400)
+
     const finalConfirmPassword = confirmPassword || confirm_password || passwordConfirmation
-    if (password !== finalConfirmPassword) throw createError('Konfirmasi password tidak cocok.', 400)
+    const hasConfirmationField = [confirmPassword, confirm_password, passwordConfirmation].some((value) => String(value).length > 0)
+    if (hasConfirmationField && password !== finalConfirmPassword) {
+      throw createError('Konfirmasi password tidak cocok.', 400)
+    }
 
     const [existingRows] = await pool.query('SELECT id FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
     debugLog('DB_SELECT_USER_BY_EMAIL', { email: normalizedEmail, found: existingRows.length > 0 })
