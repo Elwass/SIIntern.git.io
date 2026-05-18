@@ -22,10 +22,19 @@ export default function App() {
         <Route path="/register" element={<RegisterPage />} />
       </Route>
       <Route path="/reset-password" element={<ResetPasswordPage />} />
-      <Route element={<ProtectedRoute />}>
+
+      <Route element={<ProtectedRoute allowedRoles={["admin", "pembimbing_lapangan"]} />}>
         <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin/applications" element={<AdminApplicationsPage />} />
+        <Route path="/report" element={<ReportPage />} />
+      </Route>
+
+      <Route element={<ProtectedRoute allowedRoles={["mentor"]} />}>
         <Route path="/mentor" element={<MentorApplicationsPage />} />
         <Route path="/mentor/applications" element={<MentorApplicationsPage />} />
+      </Route>
+
+      <Route element={<ProtectedRoute allowedRoles={["student"]} />}>
         <Route path="/student" element={<StudentDashboard />} />
         <Route path="/student/applications" element={<StudentApplicationPage />} />
         <Route path="/student/profile" element={<StudentSectionPage section="profile" />} />
@@ -36,8 +45,6 @@ export default function App() {
         <Route path="/student/assessments" element={<StudentSectionPage section="assessments" />} />
         <Route path="/student/final-report" element={<StudentSectionPage section="final_report" />} />
         <Route path="/student/notifications" element={<StudentSectionPage section="notifications" />} />
-        <Route path="/admin/applications" element={<AdminApplicationsPage />} />
-        <Route path="/report" element={<ReportPage />} />
       </Route>
     </Routes>
   )
