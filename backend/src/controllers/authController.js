@@ -245,7 +245,7 @@ export async function signin(req, res, next) {
       return res.status(403).json({ error: 'Account not active. Please verify your OTP.' })
     }
     if (user.status === 'blocked') {
-      return res.status(403).json({ error: 'Account is blocked. Please contact admin.' })
+      return res.status(403).json({ error: 'Account is blocked. Contact admin.' })
     }
 
     await createOtpRecordAndSendMail({ userId: user.id, email: user.email, purpose: 'signin' })
