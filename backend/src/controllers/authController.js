@@ -199,8 +199,8 @@ export async function verifySignup(req, res, next) {
     const { email = '', otp = '' } = req.body
     const normalizedEmail = email.trim().toLowerCase()
 
-    if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Format email tidak valid.', 400)
-    if (!/^\d{6}$/.test(otp)) throw createError('OTP harus 6 digit angka.', 400)
+    if (!EMAIL_REGEX.test(normalizedEmail)) throw createError('Invalid OTP or account not found.', 400)
+    if (!/^\d{6}$/.test(otp)) throw createError('Invalid OTP or account not found.', 400)
 
     // Find account and ensure it exists.
     const [rows] = await pool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
