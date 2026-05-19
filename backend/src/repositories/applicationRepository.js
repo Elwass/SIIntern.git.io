@@ -100,7 +100,7 @@ export async function upsertStudentProfile(userId, payload) {
 export async function getCurrentApplication(userId) {
   const [rows] = await pool.query(
     `SELECT * FROM internship_applications
-     WHERE user_id = ? AND status IN ('pending','verified','accepted','rejected')
+     WHERE user_id = ? AND status IN ('draft','pending','verified','accepted','rejected')
      ORDER BY created_at DESC LIMIT 1`,
     [userId],
   )
@@ -115,10 +115,20 @@ export async function getApplicationById(id) {
 export async function createApplication(userId, payload) {
   const [result] = await pool.query(
     `INSERT INTO internship_applications (user_id, bidang_magang, periode_mulai, periode_selesai, motivasi, status, submitted_at)
-     VALUES (?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)`,
+     VALUES (?, ?, ?, ?, ?, 'draft', NULL)`,
     [userId, payload.bidangMagang, payload.periodeMulai, payload.periodeSelesai, payload.motivasi],
   )
   return getApplicationById(result.insertId)
+}
+
+export async function findApplicationByUserAndPeriod(userId, periodeMulai, periodeSelesai) {
+  const [rows] = await pool.query(
+    `SELECT * FROM internship_applications
+     WHERE user_id = ? AND periode_mulai = ? AND periode_selesai = ?
+     ORDER BY created_at DESC LIMIT 1`,
+    [userId, periodeMulai, periodeSelesai],
+  )
+  return toApplication(rows[0])
 }
 
 export async function updateApplication(id, payload) {
@@ -219,6 +229,12 @@ export async function listAdminApplications({ status = '', bidangMagang = '', se
   const [countRows] = await pool.query(
     `SELECT COUNT(*) AS total
      FROM internship_applications a
+     JOIN (
+       SELECT user_id, MAX(created_at) AS latest_created_at
+       FROM internship_applications
+       WHERE status <> 'draft'
+       GROUP BY user_id
+     ) latest ON latest.user_id = a.user_id AND latest.latest_created_at = a.created_at
      JOIN users u ON u.id = a.user_id
      LEFT JOIN student_profiles p ON p.user_id = a.user_id
      ${whereSql}`,
@@ -230,6 +246,12 @@ export async function listAdminApplications({ status = '', bidangMagang = '', se
   const [rows] = await pool.query(
     `SELECT a.*, p.nama_lengkap, p.nim, p.kampus, u.email
      FROM internship_applications a
+     JOIN (
+       SELECT user_id, MAX(created_at) AS latest_created_at
+       FROM internship_applications
+       WHERE status <> 'draft'
+       GROUP BY user_id
+     ) latest ON latest.user_id = a.user_id AND latest.latest_created_at = a.created_at
      JOIN users u ON u.id = a.user_id
      LEFT JOIN student_profiles p ON p.user_id = a.user_id
      ${whereSql}
