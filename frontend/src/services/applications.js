@@ -1,13 +1,10 @@
 import { getAuthHeader } from './auth.js'
 
 export const applicationStatusLabels = {
-  draft: 'Draft',
-  submitted: 'Diajukan',
-  needs_revision: 'Perlu Perbaikan',
+  pending: 'Diajukan',
   verified: 'Terverifikasi',
   accepted: 'Diterima',
   rejected: 'Ditolak',
-  cancelled: 'Dibatalkan',
 }
 
 
@@ -47,15 +44,20 @@ async function apiRequest(path, options = {}) {
 }
 
 export function getApplicationOptions() { return apiRequest('/api/student/applications/options') }
-export function getCurrentStudentApplication() { return apiRequest('/api/student/applications/current') }
-export function createStudentApplication(payload) { return apiRequest('/api/student/applications', { method: 'POST', body: JSON.stringify(payload) }) }
+export function getCurrentStudentApplication() { return apiRequest('/api/student/my-application') }
+export function createStudentApplication(payload) { return apiRequest('/api/student/register-internship', { method: 'POST', body: JSON.stringify(payload) }) }
 export function updateStudentApplication(id, payload) { return apiRequest(`/api/student/applications/${id}`, { method: 'PUT', body: JSON.stringify(payload) }) }
 export function submitStudentApplication(id) { return apiRequest(`/api/student/applications/${id}/submit`, { method: 'POST' }) }
 export function uploadStudentDocument(id, payload) { return apiRequest(`/api/student/applications/${id}/documents`, { method: 'POST', body: JSON.stringify(payload) }) }
 export function deleteStudentDocument(applicationId, documentId) { return apiRequest(`/api/student/applications/${applicationId}/documents/${documentId}`, { method: 'DELETE' }) }
 export function listAdminApplications(params = {}) { return apiRequest(`/api/admin/applications?${new URLSearchParams(params)}`) }
 export function getAdminApplication(id) { return apiRequest(`/api/admin/applications/${id}`) }
-export function updateAdminApplicationStatus(id, payload) { return apiRequest(`/api/admin/applications/${id}/status`, { method: 'PATCH', body: JSON.stringify(payload) }) }
+export function updateAdminApplicationStatus(id, payload) {
+  const endpointByStatus = { verified: 'verify', accepted: 'approve', rejected: 'reject' }
+  const endpoint = endpointByStatus[payload?.status]
+  if (endpoint) return apiRequest(`/api/admin/applications/${id}/${endpoint}`, { method: 'PUT', body: JSON.stringify(payload) })
+  return apiRequest(`/api/admin/applications/${id}/status`, { method: 'PATCH', body: JSON.stringify(payload) })
+}
 export function updateAdminDocumentStatus(applicationId, documentId, payload) { return apiRequest(`/api/admin/applications/${applicationId}/documents/${documentId}/status`, { method: 'PATCH', body: JSON.stringify(payload) }) }
 export function assignApplicationMentor(id, mentorId) { return apiRequest(`/api/admin/applications/${id}/assign-mentor`, { method: 'PATCH', body: JSON.stringify({ mentorId }) }) }
 export function listMentorApplications() { return apiRequest('/api/mentor/applications') }

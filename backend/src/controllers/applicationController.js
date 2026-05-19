@@ -7,12 +7,12 @@ import * as defaultUsers from '../repositories/userRepository.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const uploadRoot = join(__dirname, '..', 'uploads')
-const editableStatuses = ['draft', 'needs_revision']
+const editableStatuses = ['pending']
 const allowedAdminTransitions = {
-  submitted: ['needs_revision', 'verified'],
+  pending: ['verified', 'rejected'],
   verified: ['accepted', 'rejected'],
-  needs_revision: ['submitted'],
 }
+const statusAliases = { submitted: 'pending', needs_revision: 'rejected', approved: 'accepted' }
 const requiredProfileFields = ['namaLengkap', 'nim', 'kampus', 'programStudi', 'semester', 'noHp', 'alamat']
 const requiredApplicationFields = ['bidangMagang', 'periodeMulai', 'periodeSelesai', 'motivasi']
 let applications = defaultApplications
@@ -59,7 +59,7 @@ async function composeDetail(application) {
   return { ...detail, application: { ...detail.application, documentSummary: documentSummary(detail.documents) } }
 }
 function assertEditable(application, res) {
-  if (!editableStatuses.includes(application.status)) return error(res, 400, 'Pendaftaran hanya dapat diubah saat status Draft atau Perlu Perbaikan.')
+  if (!editableStatuses.includes(application.status)) return error(res, 400, 'Pendaftaran hanya dapat diubah saat status pendaftaran masih Diajukan.')
   return true
 }
 async function getStudentOwnedApplication(req, res) {
@@ -153,13 +153,14 @@ export const submitStudentApplication = async (req, res) => {
   const documents = await applications.listDocuments(application.id)
   const missing = documentSummary(documents).missing
   if (missing.length) return error(res, 400, `Dokumen wajib belum lengkap: ${missing.join(', ')}.`)
-  const updated = await applications.setApplicationStatus(application.id, 'submitted', application.catatanAdmin || '')
+  const updated = await applications.setApplicationStatus(application.id, 'pending', application.catatanAdmin || '')
   return res.json(composeCurrent(profile, { ...updated, documentSummary: documentSummary(documents) }, documents))
 }
 
 export const listAdminApplications = async (req, res) => {
   if (!requireRoles(req, res, ['admin', 'pembimbing_lapangan'])) return null
-  const { data, total } = await applications.listAdminApplications({ status: req.query.status, bidangMagang: req.query.bidang_magang, search: req.query.search, page: req.query.page, limit: req.query.limit })
+  const requestedStatus = statusAliases[req.query.status] || req.query.status
+  const { data, total } = await applications.listAdminApplications({ status: requestedStatus, bidangMagang: req.query.bidang_magang, search: req.query.search, page: req.query.page, limit: req.query.limit })
   return res.json({ data, meta: { page: Number(req.query.page || 1), limit: Number(req.query.limit || 10), total } })
 }
 
@@ -174,18 +175,35 @@ export const updateAdminApplicationStatus = async (req, res) => {
   if (!requireRoles(req, res, ['admin', 'pembimbing_lapangan'])) return null
   const application = await applications.getApplicationById(req.params.id)
   if (!application) return error(res, 404, 'Pendaftaran magang tidak ditemukan.')
-  const nextStatus = req.body.status
+  const nextStatus = statusAliases[req.body.status] || req.body.status
   if (!applicationStatuses.includes(nextStatus)) return error(res, 400, 'Status pendaftaran tidak valid.')
   if (!(allowedAdminTransitions[application.status] || []).includes(nextStatus)) return error(res, 400, `Status ${application.status} tidak dapat diubah menjadi ${nextStatus}.`)
-  const updated = await applications.setApplicationStatus(application.id, nextStatus, req.body.catatanAdmin?.trim() || '')
+  const adminNotes = (req.body.adminNotes ?? req.body.admin_notes ?? req.body.catatanAdmin ?? '').trim()
+  const updated = await applications.setApplicationStatus(application.id, nextStatus, adminNotes)
   await applications.createNotification(updated.userId, 'Status pendaftaran berubah', `Status pendaftaran magang Anda menjadi ${nextStatus}.`)
   return res.json(await composeDetail(updated))
+}
+
+export const verifyAdminApplication = async (req, res) => {
+  req.body.status = 'verified'
+  return updateAdminApplicationStatus(req, res)
+}
+
+export const approveAdminApplication = async (req, res) => {
+  req.body.status = 'accepted'
+  return updateAdminApplicationStatus(req, res)
+}
+
+export const rejectAdminApplication = async (req, res) => {
+  req.body.status = 'rejected'
+  return updateAdminApplicationStatus(req, res)
 }
 
 export const updateAdminDocumentStatus = async (req, res) => {
   if (!requireRoles(req, res, ['admin', 'pembimbing_lapangan'])) return null
   if (!['verified', 'needs_revision', 'rejected'].includes(req.body.status)) return error(res, 400, 'Status dokumen tidak valid.')
-  const document = await applications.updateDocumentStatus(req.params.id, req.params.documentId, req.body.status, req.body.catatanAdmin?.trim() || '')
+  const documentNotes = (req.body.adminNotes ?? req.body.admin_notes ?? req.body.catatanAdmin ?? '').trim()
+  const document = await applications.updateDocumentStatus(req.params.id, req.params.documentId, req.body.status, documentNotes)
   if (!document) return error(res, 404, 'Dokumen tidak ditemukan.')
   const application = await applications.getApplicationById(req.params.id)
   await applications.createNotification(application.userId, 'Status dokumen berubah', `Status dokumen ${document.jenisDokumen} menjadi ${document.status}.`)
@@ -198,7 +216,7 @@ export const assignApplicationMentor = async (req, res) => {
   if (!application) return error(res, 404, 'Pendaftaran magang tidak ditemukan.')
   if (!['accepted', 'verified'].includes(application.status)) return error(res, 400, 'Mentor hanya dapat ditetapkan untuk pendaftaran terverifikasi atau diterima.')
   const mentor = await users.findUserById(Number(req.body.mentorId))
-  if (!mentor || mentor.role !== 'mentor') return error(res, 400, 'User mentor tidak valid.')
+  if (!mentor || !['mentor', 'pembimbing_lapangan'].includes(mentor.role)) return error(res, 400, 'User mentor tidak valid.')
   const updated = await applications.setApplicationMentor(application.id, mentor.id)
   await applications.upsertMentorAssignment(application.id, mentor.id, req.user.id)
   return res.json(await composeDetail(updated))

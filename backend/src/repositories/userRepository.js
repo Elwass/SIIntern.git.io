@@ -36,7 +36,7 @@ export async function listMentors() {
   const [rows] = await pool.query(
     `SELECT id, name, email, role, created_at, updated_at
      FROM users
-     WHERE role = 'mentor'
+     WHERE role IN ('mentor', 'pembimbing_lapangan')
      ORDER BY name ASC`,
   )
   return rows.map(toUser)
