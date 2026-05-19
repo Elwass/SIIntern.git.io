@@ -27,7 +27,7 @@ test('student application API helpers call real application endpoints with auth 
   global.fetch = async (url, options = {}) => {
     calls.push({ url, options })
     assert.equal(options.headers.Authorization, 'Bearer token')
-    return new Response(JSON.stringify({ id: 10, status: 'draft' }), { status: 200 })
+    return new Response(JSON.stringify({ id: 10, status: 'pending' }), { status: 200 })
   }
 
   await getCurrentStudentApplication()
@@ -36,17 +36,17 @@ test('student application API helpers call real application endpoints with auth 
   await submitStudentApplication(10)
 
   assert.deepEqual(calls.map((call) => call.url), [
-    '/api/student/applications/current',
-    '/api/student/applications',
+    '/api/student/my-application',
+    '/api/student/register-internship',
     '/api/student/applications/10/documents',
     '/api/student/applications/10/submit',
   ])
 })
 
-test('admin status helper sends PATCH request to admin endpoint', async () => {
+test('admin status helper sends PUT request to RESTful admin verification endpoint', async () => {
   global.fetch = async (url, options = {}) => {
-    assert.equal(url, '/api/admin/applications/1/status')
-    assert.equal(options.method, 'PATCH')
+    assert.equal(url, '/api/admin/applications/1/verify')
+    assert.equal(options.method, 'PUT')
     assert.deepEqual(JSON.parse(options.body), { status: 'verified', catatanAdmin: 'Lengkap' })
     return new Response(JSON.stringify({ id: 1, status: 'verified' }), { status: 200 })
   }

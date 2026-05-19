@@ -3,6 +3,18 @@ export function notFoundHandler(req, res) {
 }
 
 export function errorHandler(err, req, res, _next) {
-  console.error('[API ERROR]', err)
-  return res.status(500).json({ success: false, message: err?.message, stack: err?.stack })
+  const statusCode = Number(err?.statusCode || err?.status || 500)
+  const safeStatusCode = statusCode >= 400 && statusCode < 600 ? statusCode : 500
+  const message = safeStatusCode === 500 ? 'Terjadi kesalahan pada server.' : err.message
+  const outputKey = err?.outputKey === 'error' ? 'error' : 'message'
+
+  console.error('[API ERROR]', {
+    method: req.method,
+    path: req.originalUrl,
+    statusCode: safeStatusCode,
+    message: err?.message,
+    stack: err?.stack,
+  })
+
+  return res.status(safeStatusCode).json({ success: false, [outputKey]: message })
 }

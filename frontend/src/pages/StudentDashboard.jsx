@@ -15,8 +15,7 @@ const timeline = [
 
 function getCta(application) {
   if (!application) return 'Daftar Magang'
-  if (application.status === 'draft') return 'Lanjutkan Pendaftaran'
-  if (application.status === 'needs_revision') return 'Perbaiki Pendaftaran'
+  if (application.status === 'pending') return 'Lengkapi / Lihat Pendaftaran'
   if (application.status === 'accepted') return 'Lihat Detail Magang'
   return 'Lihat Status'
 }
@@ -26,7 +25,7 @@ function isStepDone(application, index) {
   if (!application) return false
   if (index === 1) return Boolean(application.namaLengkap && application.nim && application.kampus)
   if (index === 2) return application.documentSummary?.complete
-  if (index === 3) return ['submitted', 'verified', 'accepted', 'rejected'].includes(application.status)
+  if (index === 3) return ['pending', 'verified', 'accepted', 'rejected'].includes(application.status)
   if (index === 4) return ['verified', 'accepted', 'rejected'].includes(application.status)
   if (index === 5) return ['accepted', 'rejected'].includes(application.status)
   return false
