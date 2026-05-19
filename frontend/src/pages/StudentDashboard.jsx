@@ -15,7 +15,7 @@ const timeline = [
 
 function getCta(application) {
   if (!application) return 'Daftar Magang'
-  if (application.status === 'draft') return 'Lanjutkan Pendaftaran'
+  if (application.status === 'pending') return 'Lengkapi / Lihat Pendaftaran'
   if (application.status === 'accepted') return 'Lihat Detail Magang'
   return 'Lihat Status'
 }

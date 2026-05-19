@@ -17,7 +17,7 @@ function createResponse() {
   return { statusCode: 200, payload: undefined, status(code) { this.statusCode = code; return this }, json(payload) { this.payload = payload; return this }, send() { return this } }
 }
 
-const draftPayload = {
+const registrationPayload = {
   namaLengkap: 'Mahasiswa Test', nim: 'TST001', kampus: 'Universitas Test', programStudi: 'Ilmu Pemerintahan', semester: 6,
   email: 'mahasiswa.test@example.com', noHp: '081234567890', alamat: 'Banyumas', bidangMagang: 'Administrasi Pemerintahan',
   periodeMulai: '2026-07-01', periodeSelesai: '2026-08-31', motivasi: 'Belajar administrasi pemerintahan daerah.',
@@ -37,9 +37,9 @@ function createRepositories() {
         Object.assign(profile, payload)
         return profile
       },
-      getCurrentApplication: async (userId) => applications.find((application) => application.userId === userId && !['rejected', 'cancelled'].includes(application.status)) || null,
+      getCurrentApplication: async (userId) => applications.find((application) => application.userId === userId) || null,
       getApplicationById: async (id) => applications.find((application) => application.id === Number(id)) || null,
-      createApplication: async (userId, payload) => { const application = { id: applications.length + 1, userId, ...payload, status: 'draft', catatanAdmin: '', mentorId: null }; applications.push(application); return application },
+      createApplication: async (userId, payload) => { const application = { id: applications.length + 1, userId, ...payload, status: 'pending', catatanAdmin: '', mentorId: null }; applications.push(application); return application },
       updateApplication: async (id, payload) => { const application = applications.find((item) => item.id === Number(id)); Object.assign(application, payload); return application },
       setApplicationStatus: async (id, status, catatanAdmin = '') => { const application = applications.find((item) => item.id === Number(id)); Object.assign(application, { status, catatanAdmin }); return application },
       setApplicationMentor: async (id, mentorId) => { const application = applications.find((item) => item.id === Number(id)); application.mentorId = mentorId; return application },
@@ -67,11 +67,11 @@ test('student baru membuka pendaftaran gets empty state from repository', async 
   assert.deepEqual(res.payload.documents, [])
 })
 
-test('student can save draft and refresh draft from repository', async () => {
+test('student can register internship and refresh submitted application from repository', async () => {
   const createRes = createResponse()
-  await createStudentApplication({ user: { id: 4, role: 'student', email: 'student@example.com' }, body: draftPayload }, createRes)
+  await createStudentApplication({ user: { id: 4, role: 'student', email: 'student@example.com' }, body: registrationPayload }, createRes)
   assert.equal(createRes.statusCode, 201)
-  assert.equal(createRes.payload.application.status, 'draft')
+  assert.equal(createRes.payload.application.status, 'pending')
   const refreshRes = createResponse()
   await getCurrentStudentApplication({ user: { id: 4, role: 'student', email: 'student@example.com' } }, refreshRes)
   assert.equal(refreshRes.payload.profile.namaLengkap, 'Mahasiswa Test')
@@ -80,7 +80,7 @@ test('student can save draft and refresh draft from repository', async () => {
 
 test('student cannot submit without required documents', async () => {
   const createRes = createResponse()
-  await createStudentApplication({ user: { id: 4, role: 'student', email: 'student@example.com' }, body: draftPayload }, createRes)
+  await createStudentApplication({ user: { id: 4, role: 'student', email: 'student@example.com' }, body: registrationPayload }, createRes)
   const submitRes = createResponse()
   await submitStudentApplication({ user: { id: 4, role: 'student' }, params: { id: createRes.payload.application.id }, body: {} }, submitRes)
   assert.equal(submitRes.statusCode, 400)
@@ -89,7 +89,7 @@ test('student cannot submit without required documents', async () => {
 
 test('student uploads required documents and submits application', async () => {
   const createRes = createResponse()
-  await createStudentApplication({ user: { id: 4, role: 'student', email: 'student@example.com' }, body: draftPayload }, createRes)
+  await createStudentApplication({ user: { id: 4, role: 'student', email: 'student@example.com' }, body: registrationPayload }, createRes)
   const applicationId = createRes.payload.application.id
   for (const jenisDokumen of createRes.payload.documentSummary.required) {
     const uploadRes = createResponse()
@@ -101,9 +101,19 @@ test('student uploads required documents and submits application', async () => {
   assert.equal(submitRes.payload.application.status, 'pending')
 })
 
-test('admin can reject, verify, accept, and assign mentor so mentor sees student', async () => {
+test('admin can reject with optional notes from pending status', async () => {
   const createRes = createResponse()
-  await createStudentApplication({ user: { id: 4, role: 'student', email: 'student@example.com' }, body: draftPayload }, createRes)
+  await createStudentApplication({ user: { id: 4, role: 'student', email: 'student@example.com' }, body: registrationPayload }, createRes)
+  const applicationId = createRes.payload.application.id
+  const rejected = createResponse()
+  await updateAdminApplicationStatus({ user: { id: 1, role: 'admin' }, params: { id: applicationId }, body: { status: 'rejected', catatanAdmin: 'Dokumen belum sesuai' } }, rejected)
+  assert.equal(rejected.payload.application.status, 'rejected')
+  assert.equal(rejected.payload.application.catatanAdmin, 'Dokumen belum sesuai')
+})
+
+test('admin can verify, accept, and assign mentor so mentor sees student', async () => {
+  const createRes = createResponse()
+  await createStudentApplication({ user: { id: 4, role: 'student', email: 'student@example.com' }, body: registrationPayload }, createRes)
   const applicationId = createRes.payload.application.id
   for (const jenisDokumen of createRes.payload.documentSummary.required) {
     await createStudentApplicationDocument({ user: { id: 4, role: 'student' }, params: { id: applicationId }, body: { jenisDokumen, fileName: `${jenisDokumen}.pdf`, fileSize: 1000, mimeType: 'application/pdf' } }, createResponse())
@@ -112,11 +122,6 @@ test('admin can reject, verify, accept, and assign mentor so mentor sees student
   const adminList = createResponse()
   await listAdminApplications({ user: { id: 1, role: 'admin' }, query: { search: 'Mahasiswa Test' } }, adminList)
   assert.equal(adminList.payload.data.length, 1)
-  const revision = createResponse()
-  await updateAdminApplicationStatus({ user: { id: 1, role: 'admin' }, params: { id: applicationId }, body: { status: 'rejected', catatanAdmin: 'Dokumen belum sesuai' } }, revision)
-  assert.equal(revision.payload.application.status, 'rejected')
-  assert.equal(revision.payload.application.catatanAdmin, 'Dokumen belum sesuai')
-  await updateAdminApplicationStatus({ user: { id: 1, role: 'admin' }, params: { id: applicationId }, body: { status: 'pending' } }, createResponse())
   await updateAdminApplicationStatus({ user: { id: 1, role: 'admin' }, params: { id: applicationId }, body: { status: 'verified' } }, createResponse())
   const accepted = createResponse()
   await updateAdminApplicationStatus({ user: { id: 1, role: 'admin' }, params: { id: applicationId }, body: { status: 'accepted' } }, accepted)

@@ -7,14 +7,12 @@ import * as defaultUsers from '../repositories/userRepository.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const uploadRoot = join(__dirname, '..', 'uploads')
-const editableStatuses = ['draft']
+const editableStatuses = ['pending']
 const allowedAdminTransitions = {
-  pending: ['verified', 'accepted', 'rejected'],
+  pending: ['verified', 'rejected'],
   verified: ['accepted', 'rejected'],
-  accepted: ['rejected'],
-  rejected: ['pending'],
 }
-const statusAliases = { submitted: 'pending', needs_revision: 'rejected' }
+const statusAliases = { submitted: 'pending', needs_revision: 'rejected', approved: 'accepted' }
 const requiredProfileFields = ['namaLengkap', 'nim', 'kampus', 'programStudi', 'semester', 'noHp', 'alamat']
 const requiredApplicationFields = ['bidangMagang', 'periodeMulai', 'periodeSelesai', 'motivasi']
 let applications = defaultApplications
@@ -61,7 +59,7 @@ async function composeDetail(application) {
   return { ...detail, application: { ...detail.application, documentSummary: documentSummary(detail.documents) } }
 }
 function assertEditable(application, res) {
-  if (!editableStatuses.includes(application.status)) return error(res, 400, 'Pendaftaran hanya dapat diubah saat status Draft.')
+  if (!editableStatuses.includes(application.status)) return error(res, 400, 'Pendaftaran hanya dapat diubah saat status pendaftaran masih Diajukan.')
   return true
 }
 async function getStudentOwnedApplication(req, res) {
@@ -178,13 +176,27 @@ export const updateAdminApplicationStatus = async (req, res) => {
   const application = await applications.getApplicationById(req.params.id)
   if (!application) return error(res, 404, 'Pendaftaran magang tidak ditemukan.')
   const nextStatus = statusAliases[req.body.status] || req.body.status
-  if (!applicationStatuses.includes(nextStatus) || nextStatus === 'draft' || nextStatus === 'cancelled') return error(res, 400, 'Status pendaftaran tidak valid.')
+  if (!applicationStatuses.includes(nextStatus)) return error(res, 400, 'Status pendaftaran tidak valid.')
   if (!(allowedAdminTransitions[application.status] || []).includes(nextStatus)) return error(res, 400, `Status ${application.status} tidak dapat diubah menjadi ${nextStatus}.`)
   const adminNotes = (req.body.adminNotes ?? req.body.admin_notes ?? req.body.catatanAdmin ?? '').trim()
-  if (nextStatus === 'rejected' && !adminNotes) return error(res, 400, 'Catatan admin wajib diisi saat menolak pendaftaran.')
   const updated = await applications.setApplicationStatus(application.id, nextStatus, adminNotes)
   await applications.createNotification(updated.userId, 'Status pendaftaran berubah', `Status pendaftaran magang Anda menjadi ${nextStatus}.`)
   return res.json(await composeDetail(updated))
+}
+
+export const verifyAdminApplication = async (req, res) => {
+  req.body.status = 'verified'
+  return updateAdminApplicationStatus(req, res)
+}
+
+export const approveAdminApplication = async (req, res) => {
+  req.body.status = 'accepted'
+  return updateAdminApplicationStatus(req, res)
+}
+
+export const rejectAdminApplication = async (req, res) => {
+  req.body.status = 'rejected'
+  return updateAdminApplicationStatus(req, res)
 }
 
 export const updateAdminDocumentStatus = async (req, res) => {

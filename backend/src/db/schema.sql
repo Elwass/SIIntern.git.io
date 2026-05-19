@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS internship_applications (
   periode_mulai DATE NOT NULL,
   periode_selesai DATE NOT NULL,
   motivasi TEXT NOT NULL,
-  status ENUM('draft', 'pending', 'verified', 'accepted', 'rejected', 'cancelled') NOT NULL DEFAULT 'draft',
+  status ENUM('pending', 'verified', 'accepted', 'rejected') NOT NULL DEFAULT 'pending',
   catatan_admin TEXT NOT NULL DEFAULT '',
   admin_notes TEXT NOT NULL DEFAULT '',
   mentor_id INT NULL,

@@ -100,7 +100,7 @@ export async function upsertStudentProfile(userId, payload) {
 export async function getCurrentApplication(userId) {
   const [rows] = await pool.query(
     `SELECT * FROM internship_applications
-     WHERE user_id = ? AND status IN ('draft','pending','verified','accepted','rejected')
+     WHERE user_id = ? AND status IN ('pending','verified','accepted','rejected')
      ORDER BY created_at DESC LIMIT 1`,
     [userId],
   )
@@ -114,8 +114,8 @@ export async function getApplicationById(id) {
 
 export async function createApplication(userId, payload) {
   const [result] = await pool.query(
-    `INSERT INTO internship_applications (user_id, bidang_magang, periode_mulai, periode_selesai, motivasi, status)
-     VALUES (?, ?, ?, ?, ?, 'draft')`,
+    `INSERT INTO internship_applications (user_id, bidang_magang, periode_mulai, periode_selesai, motivasi, status, submitted_at)
+     VALUES (?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)`,
     [userId, payload.bidangMagang, payload.periodeMulai, payload.periodeSelesai, payload.motivasi],
   )
   return getApplicationById(result.insertId)
