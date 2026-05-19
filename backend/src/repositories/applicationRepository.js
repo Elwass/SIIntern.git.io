@@ -121,6 +121,16 @@ export async function createApplication(userId, payload) {
   return getApplicationById(result.insertId)
 }
 
+export async function findApplicationByUserAndPeriod(userId, periodeMulai, periodeSelesai) {
+  const [rows] = await pool.query(
+    `SELECT * FROM internship_applications
+     WHERE user_id = ? AND periode_mulai = ? AND periode_selesai = ?
+     ORDER BY created_at DESC LIMIT 1`,
+    [userId, periodeMulai, periodeSelesai],
+  )
+  return toApplication(rows[0])
+}
+
 export async function updateApplication(id, payload) {
   await pool.query(
     `UPDATE internship_applications

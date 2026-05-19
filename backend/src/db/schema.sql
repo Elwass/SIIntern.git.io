@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS internship_applications (
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_internship_applications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_internship_applications_mentor FOREIGN KEY (mentor_id) REFERENCES users(id) ON DELETE SET NULL,
+  UNIQUE KEY uniq_user_internship_period (user_id, periode_mulai, periode_selesai),
   INDEX idx_internship_applications_user_status (user_id, status),
   INDEX idx_internship_applications_status (status),
   INDEX idx_internship_applications_bidang (bidang_magang)
