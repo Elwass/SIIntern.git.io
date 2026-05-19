@@ -24,9 +24,10 @@ export function setApplicationRepositoriesForTests(repositories = {}) {
   users = repositories.users || defaultUsers
 }
 
-function createHttpError(statusCode, message, details) {
+function createHttpError(statusCode, message, details, outputKey = 'message') {
   const error = new Error(message)
   error.statusCode = statusCode
+  error.outputKey = outputKey
   if (details) error.details = details
   return error
 }
@@ -93,7 +94,7 @@ async function composeDetail(application) {
 // causing double responses (ERR_HTTP_HEADERS_SENT).
 function assertEditableOrThrow(application) {
   if (!editableStatuses.includes(application.status)) {
-    throw createHttpError(400, 'Pendaftaran hanya dapat diubah saat status pendaftaran masih Diajukan.')
+    throw createHttpError(400, 'Pendaftaran hanya dapat diubah saat status pendaftaran masih Diajukan.', null, 'error')
   }
 }
 
@@ -172,7 +173,7 @@ export const updateStudentApplication = async (req, res, next) => {
       applications.listDocuments(application.id),
     ])
 
-    return res.json(composeCurrent(profile, { ...updated, documentSummary: documentSummary(documents) }, documents))
+    return res.json({ message: 'Pendaftaran berhasil diubah.', ...composeCurrent(profile, { ...updated, documentSummary: documentSummary(documents) }, documents) })
   } catch (error) {
     return next(error)
   }
