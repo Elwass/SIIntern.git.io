@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash VARCHAR(255) NOT NULL,
   email_verified_at DATETIME NULL,
   status ENUM('pending','active','blocked') NOT NULL DEFAULT 'pending',
-  role ENUM('student', 'admin', 'mentor') NOT NULL DEFAULT 'student',
+  role ENUM('student', 'admin', 'mentor', 'pembimbing_lapangan') NOT NULL DEFAULT 'student',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -32,8 +32,9 @@ CREATE TABLE IF NOT EXISTS internship_applications (
   periode_mulai DATE NOT NULL,
   periode_selesai DATE NOT NULL,
   motivasi TEXT NOT NULL,
-  status ENUM('draft', 'submitted', 'needs_revision', 'verified', 'accepted', 'rejected', 'cancelled') NOT NULL DEFAULT 'draft',
+  status ENUM('draft', 'pending', 'verified', 'accepted', 'rejected', 'cancelled') NOT NULL DEFAULT 'draft',
   catatan_admin TEXT NOT NULL DEFAULT '',
+  admin_notes TEXT NOT NULL DEFAULT '',
   mentor_id INT NULL,
   submitted_at DATETIME NULL,
   verified_at DATETIME NULL,
@@ -60,6 +61,7 @@ CREATE TABLE IF NOT EXISTS application_documents (
   file_size INT NOT NULL,
   status ENUM('uploaded', 'verified', 'needs_revision', 'rejected') NOT NULL DEFAULT 'uploaded',
   catatan_admin TEXT NOT NULL DEFAULT '',
+  admin_notes TEXT NOT NULL DEFAULT '',
   uploaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

@@ -19,7 +19,7 @@ const emptyForm = {
   bidangMagang: '', periodeMulai: '', periodeSelesai: '', motivasi: '',
 }
 
-function canEdit(status) { return !status || ['draft', 'needs_revision'].includes(status) }
+function canEdit(status) { return !status || status === 'draft' }
 function statusText(status) { return applicationStatusLabels[status] || 'Belum Diajukan' }
 function readFileBase64(file) {
   return new Promise((resolve, reject) => {

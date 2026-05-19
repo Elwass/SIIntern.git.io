@@ -31,7 +31,8 @@ function toApplication(row) {
     periodeSelesai: formatDate(row.periode_selesai),
     motivasi: row.motivasi,
     status: row.status,
-    catatanAdmin: row.catatan_admin || '',
+    catatanAdmin: row.admin_notes || row.catatan_admin || '',
+    adminNotes: row.admin_notes || row.catatan_admin || '',
     mentorId: row.mentor_id ? Number(row.mentor_id) : null,
     submittedAt: row.submitted_at,
     verifiedAt: row.verified_at,
@@ -55,7 +56,8 @@ function toDocument(row) {
     mimeType: row.mime_type,
     fileSize: row.file_size,
     status: row.status,
-    catatanAdmin: row.catatan_admin || '',
+    catatanAdmin: row.admin_notes || row.catatan_admin || '',
+    adminNotes: row.admin_notes || row.catatan_admin || '',
     uploadedAt: row.uploaded_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -98,7 +100,7 @@ export async function upsertStudentProfile(userId, payload) {
 export async function getCurrentApplication(userId) {
   const [rows] = await pool.query(
     `SELECT * FROM internship_applications
-     WHERE user_id = ? AND status IN ('draft','submitted','needs_revision','verified','accepted')
+     WHERE user_id = ? AND status IN ('draft','pending','verified','accepted','rejected')
      ORDER BY created_at DESC LIMIT 1`,
     [userId],
   )
@@ -130,13 +132,13 @@ export async function updateApplication(id, payload) {
 }
 
 export async function setApplicationStatus(id, status, catatanAdmin = '') {
-  const timestampColumn = { submitted: 'submitted_at', verified: 'verified_at', accepted: 'accepted_at', rejected: 'rejected_at' }[status]
+  const timestampColumn = { pending: 'submitted_at', verified: 'verified_at', accepted: 'accepted_at', rejected: 'rejected_at' }[status]
   const timestampSql = timestampColumn ? `, ${timestampColumn} = CURRENT_TIMESTAMP` : ''
   await pool.query(
     `UPDATE internship_applications
-     SET status = ?, catatan_admin = ?, updated_at = CURRENT_TIMESTAMP${timestampSql}
+     SET status = ?, catatan_admin = ?, admin_notes = ?, updated_at = CURRENT_TIMESTAMP${timestampSql}
      WHERE id = ?`,
-    [status, catatanAdmin, id],
+    [status, catatanAdmin, catatanAdmin, id],
   )
   return getApplicationById(id)
 }
@@ -175,6 +177,7 @@ export async function upsertDocument(payload) {
        file_size = VALUES(file_size),
        status = 'uploaded',
        catatan_admin = '',
+       admin_notes = '',
        uploaded_at = CURRENT_TIMESTAMP,
        updated_at = CURRENT_TIMESTAMP`,
     [payload.applicationId, payload.userId, payload.jenisDokumen, payload.fileName, payload.filePath, payload.fileUrl, payload.mimeType, payload.fileSize],
@@ -195,8 +198,8 @@ export async function deleteDocument(applicationId, documentId) {
 
 export async function updateDocumentStatus(applicationId, documentId, status, catatanAdmin = '') {
   await pool.query(
-    `UPDATE application_documents SET status = ?, catatan_admin = ?, updated_at = CURRENT_TIMESTAMP WHERE application_id = ? AND id = ?`,
-    [status, catatanAdmin, applicationId, documentId],
+    `UPDATE application_documents SET status = ?, catatan_admin = ?, admin_notes = ?, updated_at = CURRENT_TIMESTAMP WHERE application_id = ? AND id = ?`,
+    [status, catatanAdmin, catatanAdmin, applicationId, documentId],
   )
   const [rows] = await pool.query('SELECT * FROM application_documents WHERE application_id = ? AND id = ? LIMIT 1', [applicationId, documentId])
   return toDocument(rows[0])

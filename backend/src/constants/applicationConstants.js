@@ -1,4 +1,4 @@
-export const applicationStatuses = ['draft', 'submitted', 'needs_revision', 'verified', 'accepted', 'rejected', 'cancelled']
+export const applicationStatuses = ['draft', 'pending', 'verified', 'accepted', 'rejected', 'cancelled']
 export const documentStatuses = ['uploaded', 'verified', 'needs_revision', 'rejected']
 export const internshipFields = [
   'Administrasi Pemerintahan',
