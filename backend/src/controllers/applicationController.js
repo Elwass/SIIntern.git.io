@@ -7,8 +7,9 @@ import * as defaultUsers from '../repositories/userRepository.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const uploadRoot = join(__dirname, '..', 'uploads')
-const editableStatuses = ['pending']
+const editableStatuses = ['draft']
 const allowedAdminTransitions = {
+  draft: ['pending'],
   pending: ['verified', 'rejected'],
   verified: ['accepted', 'rejected'],
 }
@@ -142,7 +143,7 @@ export const createStudentApplication = async (req, res, next) => {
   try {
     requireRoles(req, ['student'])
     const current = await applications.getCurrentApplication(req.user.id)
-    if (current) throw createHttpError(409, 'Anda sudah memiliki pendaftaran aktif.')
+    if (current && current.status !== 'rejected') throw createHttpError(409, 'Anda sudah memiliki pendaftaran aktif.')
 
     const payload = pickPayload(req.body)
     const validation = validatePayload(payload)

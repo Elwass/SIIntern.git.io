@@ -19,7 +19,7 @@ const emptyForm = {
   bidangMagang: '', periodeMulai: '', periodeSelesai: '', motivasi: '',
 }
 
-function canEdit(status) { return !status || status === 'pending' }
+function canEdit(status) { return !status || status === 'draft' }
 function statusText(status) { return applicationStatusLabels[status] || 'Belum Diajukan' }
 function validateForm(form) {
   const requiredFields = ['namaLengkap', 'nim', 'kampus', 'programStudi', 'semester', 'email', 'noHp', 'alamat', 'bidangMagang', 'periodeMulai', 'periodeSelesai', 'motivasi']
