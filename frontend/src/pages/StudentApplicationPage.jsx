@@ -21,6 +21,14 @@ const emptyForm = {
 
 function canEdit(status) { return !status || status === 'pending' }
 function statusText(status) { return applicationStatusLabels[status] || 'Belum Diajukan' }
+function validateForm(form) {
+  const requiredFields = ['namaLengkap', 'nim', 'kampus', 'programStudi', 'semester', 'email', 'noHp', 'alamat', 'bidangMagang', 'periodeMulai', 'periodeSelesai', 'motivasi']
+  const missing = requiredFields.filter((field) => !String(form[field] ?? '').trim())
+  if (missing.length) return `Field wajib belum diisi: ${missing.join(', ')}`
+  if (Number(form.semester) < 1 || Number(form.semester) > 14) return 'Semester harus di antara 1 sampai 14.'
+  if (form.periodeSelesai < form.periodeMulai) return 'Periode selesai tidak boleh sebelum periode mulai.'
+  return ''
+}
 function readFileBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -70,6 +78,8 @@ export default function StudentApplicationPage() {
   const saveDraft = async () => {
     setSaving(true); setError(''); setSuccess('')
     try {
+      const validationMessage = validateForm(form)
+      if (validationMessage) throw new Error(validationMessage)
       const result = application ? await updateStudentApplication(application.id, form) : await createStudentApplication(form)
       setCurrent(result)
       setSuccess('Draft pendaftaran berhasil disimpan.')
@@ -79,6 +89,8 @@ export default function StudentApplicationPage() {
   const submitApplication = async () => {
     setSaving(true); setError(''); setSuccess('')
     try {
+      const validationMessage = validateForm(form)
+      if (validationMessage) throw new Error(validationMessage)
       const saved = application ? await updateStudentApplication(application.id, form) : await createStudentApplication(form)
       const submitted = await submitStudentApplication(saved.application.id)
       setCurrent(submitted)
