@@ -50,6 +50,8 @@ export default function StudentApplicationPage() {
   const application = current.application
   const documents = current.documents || []
   const editable = canEdit(application?.status)
+  const summary = current.application?.documentSummary || current.documentSummary
+  const canSubmit = Boolean(application && summary?.complete)
 
   const loadData = async () => {
     setLoading(true)
@@ -92,6 +94,8 @@ export default function StudentApplicationPage() {
       const validationMessage = validateForm(form)
       if (validationMessage) throw new Error(validationMessage)
       const saved = application ? await updateStudentApplication(application.id, form) : await createStudentApplication(form)
+      const savedSummary = saved.application?.documentSummary || saved.documentSummary
+      if (!savedSummary?.complete) throw new Error(`Dokumen wajib belum lengkap: ${(savedSummary?.missing || []).join(', ')}`)
       const submitted = await submitStudentApplication(saved.application.id)
       setCurrent(submitted)
       setSuccess('Pendaftaran berhasil diajukan dan menunggu verifikasi admin.')
@@ -174,7 +178,8 @@ export default function StudentApplicationPage() {
 
         <div className="mt-8 flex flex-wrap gap-3">
           {editable && <button type="button" disabled={saving} onClick={saveDraft} className="rounded-xl border border-red-200 px-5 py-3 text-sm font-semibold text-red-700 hover:bg-red-50">Simpan Draft</button>}
-          {editable && <button type="button" disabled={saving} onClick={submitApplication} className="rounded-xl bg-red-700 px-5 py-3 text-sm font-semibold text-white hover:bg-red-800">Ajukan Pendaftaran</button>}
+          {editable && <button type="button" disabled={saving || !canSubmit} onClick={submitApplication} className="rounded-xl bg-red-700 px-5 py-3 text-sm font-semibold text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50">Ajukan Pendaftaran</button>}
+          {editable && !canSubmit && <p className="self-center text-xs text-amber-700">Lengkapi seluruh dokumen wajib sebelum mengajukan pendaftaran.</p>}
           <button type="button" onClick={loadData} className="rounded-xl px-5 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-100">Batalkan Perubahan</button>
         </div>
       </section>

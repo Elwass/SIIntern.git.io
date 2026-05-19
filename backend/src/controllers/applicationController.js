@@ -96,7 +96,7 @@ async function composeDetail(application) {
 // causing double responses (ERR_HTTP_HEADERS_SENT).
 function assertEditableOrThrow(application) {
   if (!editableStatuses.includes(application.status)) {
-    throw createHttpError(400, 'Pendaftaran hanya dapat diubah saat status pendaftaran masih Diajukan.', null, 'error')
+    throw createHttpError(400, 'Pendaftaran hanya dapat diubah saat status pendaftaran masih Belum Diajukan (draft).', null, 'error')
   }
 }
 
@@ -143,12 +143,23 @@ export const createStudentApplication = async (req, res, next) => {
   try {
     requireRoles(req, ['student'])
     const current = await applications.getCurrentApplication(req.user.id)
-    if (current && current.status !== 'rejected') throw createHttpError(409, 'Anda sudah memiliki pendaftaran aktif.')
 
     const payload = pickPayload(req.body)
     const validation = validatePayload(payload)
     if (validation) throw createHttpError(400, validation)
     if (!validateEmail(req.body.email || req.user.email)) throw createHttpError(400, 'Format email tidak valid.')
+
+    if (current) {
+      if (!editableStatuses.includes(current.status)) {
+        throw createHttpError(409, 'Anda sudah memiliki pendaftaran aktif.')
+      }
+
+      await applications.upsertStudentProfile(req.user.id, payload)
+      const updated = await applications.updateApplication(current.id, payload)
+      const documents = await applications.listDocuments(current.id)
+      const profile = await applications.getStudentProfile(req.user.id)
+      return res.status(200).json(composeCurrent(profile, { ...updated, documentSummary: documentSummary(documents) }, documents))
+    }
 
     const duplicate = await applications.findApplicationByUserAndPeriod(req.user.id, payload.periodeMulai, payload.periodeSelesai)
     if (duplicate) throw createHttpError(400, 'Anda sudah pernah mendaftar pada periode magang yang sama.')
