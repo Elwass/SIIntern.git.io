@@ -15,7 +15,8 @@ const timeline = [
 
 function getCta(application) {
   if (!application) return 'Daftar Magang'
-  if (application.status === 'pending') return 'Lengkapi / Lihat Pendaftaran'
+  if (application.status === 'draft') return 'Lengkapi / Ajukan Pendaftaran'
+  if (application.status === 'pending') return 'Lihat Status Pendaftaran'
   if (application.status === 'accepted') return 'Lihat Detail Magang'
   return 'Lihat Status'
 }
@@ -38,10 +39,23 @@ export default function StudentDashboard() {
   const session = getStoredSession()
 
   useEffect(() => {
-    getCurrentStudentApplication()
-      .then(setCurrent)
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false))
+    let mounted = true
+    const load = async () => {
+      try {
+        const data = await getCurrentStudentApplication()
+        if (!mounted) return
+        setCurrent(data)
+        setError('')
+      } catch (err) {
+        if (mounted) setError(err.message)
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+
+    load()
+    const interval = setInterval(load, 15000)
+    return () => { mounted = false; clearInterval(interval) }
   }, [])
 
   if (loading) return <DashboardLayout><div className="rounded-3xl bg-white p-6 shadow-sm">Memuat dashboard...</div></DashboardLayout>
