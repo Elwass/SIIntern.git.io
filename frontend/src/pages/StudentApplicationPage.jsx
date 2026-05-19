@@ -19,7 +19,7 @@ const emptyForm = {
   bidangMagang: '', periodeMulai: '', periodeSelesai: '', motivasi: '',
 }
 
-function canEdit(status) { return !status || ['draft', 'needs_revision'].includes(status) }
+function canEdit(status) { return !status || status === 'pending' }
 function statusText(status) { return applicationStatusLabels[status] || 'Belum Diajukan' }
 function readFileBase64(file) {
   return new Promise((resolve, reject) => {
@@ -143,7 +143,7 @@ export default function StudentApplicationPage() {
 
         <div className="mt-8 rounded-2xl border border-slate-100 p-5">
           <h2 className="text-lg font-bold text-slate-950">Dokumen Pendaftaran</h2>
-          {!application && <p className="mt-2 text-sm text-slate-600">Simpan draft terlebih dahulu sebelum mengunggah dokumen.</p>}
+          {!application && <p className="mt-2 text-sm text-slate-600">Simpan pendaftaran terlebih dahulu sebelum mengunggah dokumen.</p>}
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             {options.requiredDocumentTypes.map((type) => {
               const document = documents.find((item) => item.jenisDokumen === type)
