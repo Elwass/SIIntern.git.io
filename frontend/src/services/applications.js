@@ -2,8 +2,7 @@ import { getAuthHeader } from './auth.js'
 
 export const applicationStatusLabels = {
   draft: 'Draft',
-  submitted: 'Diajukan',
-  needs_revision: 'Perlu Perbaikan',
+  pending: 'Menunggu Verifikasi',
   verified: 'Terverifikasi',
   accepted: 'Diterima',
   rejected: 'Ditolak',

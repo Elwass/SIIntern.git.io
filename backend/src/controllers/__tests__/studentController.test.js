@@ -98,10 +98,10 @@ test('student uploads required documents and submits application', async () => {
   }
   const submitRes = createResponse()
   await submitStudentApplication({ user: { id: 4, role: 'student' }, params: { id: applicationId }, body: {} }, submitRes)
-  assert.equal(submitRes.payload.application.status, 'submitted')
+  assert.equal(submitRes.payload.application.status, 'pending')
 })
 
-test('admin can request revision, accept, and assign mentor so mentor sees student', async () => {
+test('admin can reject, verify, accept, and assign mentor so mentor sees student', async () => {
   const createRes = createResponse()
   await createStudentApplication({ user: { id: 4, role: 'student', email: 'student@example.com' }, body: draftPayload }, createRes)
   const applicationId = createRes.payload.application.id
@@ -113,10 +113,10 @@ test('admin can request revision, accept, and assign mentor so mentor sees stude
   await listAdminApplications({ user: { id: 1, role: 'admin' }, query: { search: 'Mahasiswa Test' } }, adminList)
   assert.equal(adminList.payload.data.length, 1)
   const revision = createResponse()
-  await updateAdminApplicationStatus({ user: { id: 1, role: 'admin' }, params: { id: applicationId }, body: { status: 'needs_revision', catatanAdmin: 'Perbaiki dokumen' } }, revision)
-  assert.equal(revision.payload.application.status, 'needs_revision')
-  assert.equal(revision.payload.application.catatanAdmin, 'Perbaiki dokumen')
-  await updateAdminApplicationStatus({ user: { id: 1, role: 'admin' }, params: { id: applicationId }, body: { status: 'submitted' } }, createResponse())
+  await updateAdminApplicationStatus({ user: { id: 1, role: 'admin' }, params: { id: applicationId }, body: { status: 'rejected', catatanAdmin: 'Dokumen belum sesuai' } }, revision)
+  assert.equal(revision.payload.application.status, 'rejected')
+  assert.equal(revision.payload.application.catatanAdmin, 'Dokumen belum sesuai')
+  await updateAdminApplicationStatus({ user: { id: 1, role: 'admin' }, params: { id: applicationId }, body: { status: 'pending' } }, createResponse())
   await updateAdminApplicationStatus({ user: { id: 1, role: 'admin' }, params: { id: applicationId }, body: { status: 'verified' } }, createResponse())
   const accepted = createResponse()
   await updateAdminApplicationStatus({ user: { id: 1, role: 'admin' }, params: { id: applicationId }, body: { status: 'accepted' } }, accepted)
