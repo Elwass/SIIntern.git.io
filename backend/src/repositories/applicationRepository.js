@@ -171,8 +171,26 @@ export async function upsertMentorAssignment(applicationId, mentorId, assignedBy
 }
 
 export async function listDocuments(applicationId) {
-  const [rows] = await pool.query('SELECT * FROM application_documents WHERE application_id = ? ORDER BY jenis_dokumen ASC', [applicationId])
+  const [rows] = await pool.query(
+    `SELECT d.*
+     FROM application_documents d
+     JOIN internship_applications a ON a.id = d.application_id
+     WHERE d.application_id = ?
+     ORDER BY d.jenis_dokumen ASC`,
+    [applicationId],
+  )
   return rows.map(toDocument)
+}
+
+export async function countUploadedRequiredDocuments(applicationId) {
+  const [rows] = await pool.query(
+    `SELECT COUNT(DISTINCT d.jenis_dokumen) AS total
+     FROM application_documents d
+     JOIN internship_applications a ON a.id = d.application_id
+     WHERE d.application_id = ?`,
+    [applicationId],
+  )
+  return Number(rows[0]?.total || 0)
 }
 
 export async function upsertDocument(payload) {

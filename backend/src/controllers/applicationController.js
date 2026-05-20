@@ -261,17 +261,27 @@ export const submitStudentApplication = async (req, res, next) => {
   try {
     requireRoles(req, ['student'])
     const application = await getStudentOwnedApplicationOrThrow(req)
-    assertEditableOrThrow(application)
+    if (application.status !== 'draft') {
+      throw createHttpError(400, 'Pendaftaran hanya dapat diajukan saat status masih Belum Diajukan.', null, 'error')
+    }
 
     const profile = await applications.getStudentProfile(req.user.id)
     if (!profile) throw createHttpError(400, 'Data mahasiswa belum lengkap.')
 
     const documents = await applications.listDocuments(application.id)
-    const missing = documentSummary(documents).missing
+    const uploadedRequiredDocumentCount = await applications.countUploadedRequiredDocuments(application.id)
+    const summary = documentSummary(documents)
+    const missing = summary.missing
+    if (uploadedRequiredDocumentCount < requiredDocumentTypes.length) {
+      throw createHttpError(400, `Dokumen wajib belum lengkap: ${missing.join(', ')}.`)
+    }
     if (missing.length) throw createHttpError(400, `Dokumen wajib belum lengkap: ${missing.join(', ')}.`)
 
     const updated = await applications.setApplicationStatus(application.id, 'pending', application.catatanAdmin || '')
-    return res.json(composeCurrent(profile, { ...updated, documentSummary: documentSummary(documents) }, documents))
+    return res.json({
+      message: 'Pendaftaran berhasil diajukan.',
+      ...composeCurrent(profile, { ...updated, documentSummary: summary }, documents),
+    })
   } catch (error) {
     return next(error)
   }
