@@ -7,8 +7,9 @@ import * as defaultUsers from '../repositories/userRepository.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const uploadRoot = join(__dirname, '..', 'uploads')
-const editableStatuses = ['pending']
+const editableStatuses = ['draft']
 const allowedAdminTransitions = {
+  draft: ['pending'],
   pending: ['verified', 'rejected'],
   verified: ['accepted', 'rejected'],
 }
@@ -64,6 +65,7 @@ function validatePayload(payload) {
   if (!Number.isInteger(payload.semester) || payload.semester < 1 || payload.semester > 14) return 'Semester harus berupa angka 1 sampai 14.'
   if (!internshipFields.includes(payload.bidangMagang)) return 'Bidang magang tidak valid.'
   if (payload.periodeSelesai < payload.periodeMulai) return 'Periode selesai tidak boleh sebelum periode mulai.'
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(payload.periodeMulai) || !/^\d{4}-\d{2}-\d{2}$/.test(payload.periodeSelesai)) return 'Format periode harus YYYY-MM-DD.'
   return ''
 }
 
@@ -94,7 +96,7 @@ async function composeDetail(application) {
 // causing double responses (ERR_HTTP_HEADERS_SENT).
 function assertEditableOrThrow(application) {
   if (!editableStatuses.includes(application.status)) {
-    throw createHttpError(400, 'Pendaftaran hanya dapat diubah saat status pendaftaran masih Diajukan.', null, 'error')
+    throw createHttpError(400, 'Pendaftaran hanya dapat diubah saat status pendaftaran masih Belum Diajukan (draft).', null, 'error')
   }
 }
 
@@ -141,12 +143,26 @@ export const createStudentApplication = async (req, res, next) => {
   try {
     requireRoles(req, ['student'])
     const current = await applications.getCurrentApplication(req.user.id)
-    if (current) throw createHttpError(409, 'Anda sudah memiliki pendaftaran aktif.')
 
     const payload = pickPayload(req.body)
     const validation = validatePayload(payload)
     if (validation) throw createHttpError(400, validation)
     if (!validateEmail(req.body.email || req.user.email)) throw createHttpError(400, 'Format email tidak valid.')
+
+    if (current) {
+      if (!editableStatuses.includes(current.status)) {
+        throw createHttpError(409, 'Anda sudah memiliki pendaftaran aktif.')
+      }
+
+      await applications.upsertStudentProfile(req.user.id, payload)
+      const updated = await applications.updateApplication(current.id, payload)
+      const documents = await applications.listDocuments(current.id)
+      const profile = await applications.getStudentProfile(req.user.id)
+      return res.status(200).json(composeCurrent(profile, { ...updated, documentSummary: documentSummary(documents) }, documents))
+    }
+
+    const duplicate = await applications.findApplicationByUserAndPeriod(req.user.id, payload.periodeMulai, payload.periodeSelesai)
+    if (duplicate) throw createHttpError(400, 'Anda sudah pernah mendaftar pada periode magang yang sama.')
 
     const profile = await applications.upsertStudentProfile(req.user.id, payload)
     const application = await applications.createApplication(req.user.id, payload)
@@ -165,6 +181,11 @@ export const updateStudentApplication = async (req, res, next) => {
     const payload = pickPayload(req.body)
     const validation = validatePayload(payload)
     if (validation) throw createHttpError(400, validation)
+
+    const duplicate = await applications.findApplicationByUserAndPeriod(req.user.id, payload.periodeMulai, payload.periodeSelesai)
+    if (duplicate && duplicate.id !== application.id) {
+      throw createHttpError(400, 'Periode magang ini sudah digunakan pada pendaftaran lain.')
+    }
 
     await applications.upsertStudentProfile(req.user.id, payload)
     const updated = await applications.updateApplication(application.id, payload)
@@ -240,17 +261,27 @@ export const submitStudentApplication = async (req, res, next) => {
   try {
     requireRoles(req, ['student'])
     const application = await getStudentOwnedApplicationOrThrow(req)
-    assertEditableOrThrow(application)
+    if (application.status !== 'draft') {
+      throw createHttpError(400, 'Pendaftaran hanya dapat diajukan saat status masih Belum Diajukan.', null, 'error')
+    }
 
     const profile = await applications.getStudentProfile(req.user.id)
     if (!profile) throw createHttpError(400, 'Data mahasiswa belum lengkap.')
 
     const documents = await applications.listDocuments(application.id)
-    const missing = documentSummary(documents).missing
+    const uploadedRequiredDocumentCount = await applications.countUploadedRequiredDocuments(application.id)
+    const summary = documentSummary(documents)
+    const missing = summary.missing
+    if (uploadedRequiredDocumentCount < requiredDocumentTypes.length) {
+      throw createHttpError(400, `Dokumen wajib belum lengkap: ${missing.join(', ')}.`)
+    }
     if (missing.length) throw createHttpError(400, `Dokumen wajib belum lengkap: ${missing.join(', ')}.`)
 
     const updated = await applications.setApplicationStatus(application.id, 'pending', application.catatanAdmin || '')
-    return res.json(composeCurrent(profile, { ...updated, documentSummary: documentSummary(documents) }, documents))
+    return res.json({
+      message: 'Pendaftaran berhasil diajukan.',
+      ...composeCurrent(profile, { ...updated, documentSummary: summary }, documents),
+    })
   } catch (error) {
     return next(error)
   }
@@ -295,6 +326,7 @@ export const updateAdminApplicationStatus = async (req, res, next) => {
     if (!application) throw createHttpError(404, 'Pendaftaran magang tidak ditemukan.')
 
     const nextStatus = statusAliases[req.body.status] || req.body.status
+    if (!nextStatus) throw createHttpError(400, 'Status pendaftaran wajib diisi.')
     if (!applicationStatuses.includes(nextStatus)) throw createHttpError(400, 'Status pendaftaran tidak valid.')
     if (!(allowedAdminTransitions[application.status] || []).includes(nextStatus)) {
       throw createHttpError(400, `Status ${application.status} tidak dapat diubah menjadi ${nextStatus}.`)
