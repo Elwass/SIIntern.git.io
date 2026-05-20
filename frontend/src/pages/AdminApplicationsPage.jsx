@@ -21,7 +21,16 @@ export default function AdminApplicationsPage() {
   const [error, setError] = useState('')
 
   const loadRows = async () => {
-    try { const result = await listAdminApplications(filters); setRows(result.data); if (result.data[0] && !selected) loadDetail(result.data[0].id) } catch (err) { setError(err.message) }
+    try {
+      const result = await listAdminApplications(filters)
+      const deduplicated = Object.values(result.data.reduce((accumulator, row) => {
+        const key = `${row.userId}-${row.periodeMulai}-${row.periodeSelesai}`
+        if (!accumulator[key] || new Date(row.createdAt) > new Date(accumulator[key].createdAt)) accumulator[key] = row
+        return accumulator
+      }, {}))
+      setRows(deduplicated)
+      if (deduplicated[0] && !selected) loadDetail(deduplicated[0].id)
+    } catch (err) { setError(err.message) }
   }
   const loadDetail = async (id) => {
     try {
