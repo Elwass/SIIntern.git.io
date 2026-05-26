@@ -31,8 +31,8 @@ function toApplication(row) {
     periodeSelesai: formatDate(row.periode_selesai),
     motivasi: row.motivasi,
     status: row.status,
-    catatanAdmin: row.admin_notes || row.catatan_admin || '',
-    adminNotes: row.admin_notes || row.catatan_admin || '',
+    catatanAdmin: row.catatan_admin || '',
+    adminNotes: row.catatan_admin || '',
     mentorId: row.mentor_id ? Number(row.mentor_id) : null,
     submittedAt: row.submitted_at,
     verifiedAt: row.verified_at,
@@ -56,8 +56,8 @@ function toDocument(row) {
     mimeType: row.mime_type,
     fileSize: row.file_size,
     status: row.status,
-    catatanAdmin: row.admin_notes || row.catatan_admin || '',
-    adminNotes: row.admin_notes || row.catatan_admin || '',
+    catatanAdmin: row.catatan_admin || '',
+    adminNotes: row.catatan_admin || '',
     uploadedAt: row.uploaded_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -77,6 +77,11 @@ function toUser(row, prefix = 'user') {
 export async function getStudentProfile(userId) {
   const [rows] = await pool.query('SELECT * FROM student_profiles WHERE user_id = ? LIMIT 1', [userId])
   return toProfile(rows[0])
+}
+
+export async function userExists(userId) {
+  const [rows] = await pool.query('SELECT id FROM users WHERE id = ? LIMIT 1', [userId])
+  return Boolean(rows[0]?.id)
 }
 
 export async function upsertStudentProfile(userId, payload) {
@@ -100,7 +105,7 @@ export async function upsertStudentProfile(userId, payload) {
 export async function getCurrentApplication(userId) {
   const [rows] = await pool.query(
     `SELECT * FROM internship_applications
-     WHERE user_id = ? AND status IN ('pending','verified','accepted','rejected')
+     WHERE user_id = ? AND status IN ('draft','pending','verified','accepted','rejected')
      ORDER BY created_at DESC LIMIT 1`,
     [userId],
   )
@@ -115,10 +120,20 @@ export async function getApplicationById(id) {
 export async function createApplication(userId, payload) {
   const [result] = await pool.query(
     `INSERT INTO internship_applications (user_id, bidang_magang, periode_mulai, periode_selesai, motivasi, status, submitted_at)
-     VALUES (?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)`,
+     VALUES (?, ?, ?, ?, ?, 'draft', NULL)`,
     [userId, payload.bidangMagang, payload.periodeMulai, payload.periodeSelesai, payload.motivasi],
   )
   return getApplicationById(result.insertId)
+}
+
+export async function findApplicationByUserAndPeriod(userId, periodeMulai, periodeSelesai) {
+  const [rows] = await pool.query(
+    `SELECT * FROM internship_applications
+     WHERE user_id = ? AND periode_mulai = ? AND periode_selesai = ?
+     ORDER BY created_at DESC LIMIT 1`,
+    [userId, periodeMulai, periodeSelesai],
+  )
+  return toApplication(rows[0])
 }
 
 export async function updateApplication(id, payload) {
@@ -136,9 +151,9 @@ export async function setApplicationStatus(id, status, catatanAdmin = '') {
   const timestampSql = timestampColumn ? `, ${timestampColumn} = CURRENT_TIMESTAMP` : ''
   await pool.query(
     `UPDATE internship_applications
-     SET status = ?, catatan_admin = ?, admin_notes = ?, updated_at = CURRENT_TIMESTAMP${timestampSql}
+     SET status = ?, catatan_admin = ?, updated_at = CURRENT_TIMESTAMP${timestampSql}
      WHERE id = ?`,
-    [status, catatanAdmin, catatanAdmin, id],
+    [status, catatanAdmin, id],
   )
   return getApplicationById(id)
 }
@@ -161,8 +176,27 @@ export async function upsertMentorAssignment(applicationId, mentorId, assignedBy
 }
 
 export async function listDocuments(applicationId) {
-  const [rows] = await pool.query('SELECT * FROM application_documents WHERE application_id = ? ORDER BY jenis_dokumen ASC', [applicationId])
+  const [rows] = await pool.query(
+    `SELECT d.*
+     FROM application_documents d
+     JOIN internship_applications a ON a.id = d.application_id
+     WHERE d.application_id = ?
+     ORDER BY d.jenis_dokumen ASC`,
+    [applicationId],
+  )
   return rows.map(toDocument)
+}
+
+export async function countUploadedRequiredDocuments(applicationId) {
+  const [rows] = await pool.query(
+    `SELECT COUNT(DISTINCT d.jenis_dokumen) AS total
+     FROM application_documents d
+     JOIN internship_applications a ON a.id = d.application_id
+     WHERE d.application_id = ?
+       AND d.jenis_dokumen IN ('surat_pengantar_kampus', 'curriculum_vitae', 'kartu_tanda_mahasiswa', 'pas_foto', 'transkrip_nilai')`,
+    [applicationId],
+  )
+  return Number(rows[0]?.total || 0)
 }
 
 export async function upsertDocument(payload) {
@@ -177,7 +211,6 @@ export async function upsertDocument(payload) {
        file_size = VALUES(file_size),
        status = 'uploaded',
        catatan_admin = '',
-       admin_notes = '',
        uploaded_at = CURRENT_TIMESTAMP,
        updated_at = CURRENT_TIMESTAMP`,
     [payload.applicationId, payload.userId, payload.jenisDokumen, payload.fileName, payload.filePath, payload.fileUrl, payload.mimeType, payload.fileSize],
@@ -198,8 +231,8 @@ export async function deleteDocument(applicationId, documentId) {
 
 export async function updateDocumentStatus(applicationId, documentId, status, catatanAdmin = '') {
   await pool.query(
-    `UPDATE application_documents SET status = ?, catatan_admin = ?, admin_notes = ?, updated_at = CURRENT_TIMESTAMP WHERE application_id = ? AND id = ?`,
-    [status, catatanAdmin, catatanAdmin, applicationId, documentId],
+    `UPDATE application_documents SET status = ?, catatan_admin = ?, updated_at = CURRENT_TIMESTAMP WHERE application_id = ? AND id = ?`,
+    [status, catatanAdmin, applicationId, documentId],
   )
   const [rows] = await pool.query('SELECT * FROM application_documents WHERE application_id = ? AND id = ? LIMIT 1', [applicationId, documentId])
   return toDocument(rows[0])
@@ -219,6 +252,12 @@ export async function listAdminApplications({ status = '', bidangMagang = '', se
   const [countRows] = await pool.query(
     `SELECT COUNT(*) AS total
      FROM internship_applications a
+     JOIN (
+       SELECT user_id, MAX(created_at) AS latest_created_at
+       FROM internship_applications
+       WHERE status <> 'draft'
+       GROUP BY user_id
+     ) latest ON latest.user_id = a.user_id AND latest.latest_created_at = a.created_at
      JOIN users u ON u.id = a.user_id
      LEFT JOIN student_profiles p ON p.user_id = a.user_id
      ${whereSql}`,
@@ -230,6 +269,12 @@ export async function listAdminApplications({ status = '', bidangMagang = '', se
   const [rows] = await pool.query(
     `SELECT a.*, p.nama_lengkap, p.nim, p.kampus, u.email
      FROM internship_applications a
+     JOIN (
+       SELECT user_id, MAX(created_at) AS latest_created_at
+       FROM internship_applications
+       WHERE status <> 'draft'
+       GROUP BY user_id
+     ) latest ON latest.user_id = a.user_id AND latest.latest_created_at = a.created_at
      JOIN users u ON u.id = a.user_id
      LEFT JOIN student_profiles p ON p.user_id = a.user_id
      ${whereSql}
