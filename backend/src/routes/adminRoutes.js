@@ -27,5 +27,6 @@ router.put('/applications/:id/reject', authorizeRoles(verificationRoles), asyncH
 router.patch('/applications/:id/status', authorizeRoles(verificationRoles), asyncHandler(updateAdminApplicationStatus))
 router.patch('/applications/:id', authorizeRoles(verificationRoles), asyncHandler(updateAdminApplicationStatus))
 router.patch('/applications/:id/documents/:documentId/status', authorizeRoles(verificationRoles), asyncHandler(updateAdminDocumentStatus))
+router.patch('/applications/:id/documents/:docId/status', authorizeRoles(verificationRoles), asyncHandler(updateAdminDocumentStatus))
 router.patch('/applications/:id/assign-mentor', authorizeRoles(verificationRoles), asyncHandler(assignApplicationMentor))
 export default router

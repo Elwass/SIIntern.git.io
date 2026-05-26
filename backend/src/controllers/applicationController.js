@@ -142,6 +142,9 @@ export const getCurrentStudentApplication = async (req, res, next) => {
 export const createStudentApplication = async (req, res, next) => {
   try {
     requireRoles(req, ['student'])
+    const userExists = await applications.userExists(req.user.id)
+    if (!userExists) throw createHttpError(403, 'Akun pengguna tidak valid.')
+
     const current = await applications.getCurrentApplication(req.user.id)
 
     const payload = pickPayload(req.body)
@@ -175,6 +178,9 @@ export const createStudentApplication = async (req, res, next) => {
 export const updateStudentApplication = async (req, res, next) => {
   try {
     requireRoles(req, ['student'])
+    const userExists = await applications.userExists(req.user.id)
+    if (!userExists) throw createHttpError(403, 'Akun pengguna tidak valid.')
+
     const application = await getStudentOwnedApplicationOrThrow(req)
     assertEditableOrThrow(application)
 
@@ -374,7 +380,8 @@ export const updateAdminDocumentStatus = async (req, res, next) => {
     if (!['verified', 'needs_revision', 'rejected'].includes(req.body.status)) throw createHttpError(400, 'Status dokumen tidak valid.')
 
     const documentNotes = (req.body.adminNotes ?? req.body.admin_notes ?? req.body.catatanAdmin ?? '').trim()
-    const document = await applications.updateDocumentStatus(req.params.id, req.params.documentId, req.body.status, documentNotes)
+    const documentId = req.params.documentId ?? req.params.docId
+    const document = await applications.updateDocumentStatus(req.params.id, documentId, req.body.status, documentNotes)
     if (!document) throw createHttpError(404, 'Dokumen tidak ditemukan.')
 
     const application = await applications.getApplicationById(req.params.id)

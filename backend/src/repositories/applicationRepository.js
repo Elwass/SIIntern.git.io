@@ -79,6 +79,11 @@ export async function getStudentProfile(userId) {
   return toProfile(rows[0])
 }
 
+export async function userExists(userId) {
+  const [rows] = await pool.query('SELECT id FROM users WHERE id = ? LIMIT 1', [userId])
+  return Boolean(rows[0]?.id)
+}
+
 export async function upsertStudentProfile(userId, payload) {
   await pool.query(
     `INSERT INTO student_profiles (user_id, nama_lengkap, nim, kampus, program_studi, semester, no_hp, alamat)
@@ -187,7 +192,8 @@ export async function countUploadedRequiredDocuments(applicationId) {
     `SELECT COUNT(DISTINCT d.jenis_dokumen) AS total
      FROM application_documents d
      JOIN internship_applications a ON a.id = d.application_id
-     WHERE d.application_id = ?`,
+     WHERE d.application_id = ?
+       AND d.jenis_dokumen IN ('surat_pengantar_kampus', 'curriculum_vitae', 'kartu_tanda_mahasiswa', 'pas_foto', 'transkrip_nilai')`,
     [applicationId],
   )
   return Number(rows[0]?.total || 0)
