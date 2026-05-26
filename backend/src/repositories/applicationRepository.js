@@ -230,19 +230,20 @@ export async function deleteDocument(applicationId, documentId) {
 }
 
 export async function updateDocumentStatus(applicationId, documentId, status, catatanAdmin = '') {
-  const [existingRows] = await pool.query('SELECT * FROM application_documents WHERE id = ? LIMIT 1', [documentId])
-  const existing = existingRows[0]
-  if (!existing) return null
-  if (Number(existing.application_id) !== Number(applicationId)) {
-    const error = new Error('Dokumen tidak sesuai dengan pendaftaran yang dipilih.')
+  const [result] = await pool.query(
+    `UPDATE application_documents SET status = ?, catatan_admin = ?, updated_at = CURRENT_TIMESTAMP WHERE application_id = ? AND id = ?`,
+    [status, catatanAdmin, applicationId, documentId],
+  )
+  if (!result?.affectedRows) {
+    const [existingRows] = await pool.query('SELECT id, application_id FROM application_documents WHERE id = ? LIMIT 1', [documentId])
+    const existing = existingRows[0]
+    if (!existing) return null
+
+    const error = new Error(`Dokumen ${documentId} terhubung ke pendaftaran ${existing.application_id}, bukan ${applicationId}.`)
     error.statusCode = 400
     throw error
   }
 
-  await pool.query(
-    `UPDATE application_documents SET status = ?, catatan_admin = ?, updated_at = CURRENT_TIMESTAMP WHERE application_id = ? AND id = ?`,
-    [status, catatanAdmin, applicationId, documentId],
-  )
   const [rows] = await pool.query('SELECT * FROM application_documents WHERE application_id = ? AND id = ? LIMIT 1', [applicationId, documentId])
   return toDocument(rows[0])
 }
