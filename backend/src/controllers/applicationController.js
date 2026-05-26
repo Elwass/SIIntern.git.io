@@ -379,12 +379,16 @@ export const updateAdminDocumentStatus = async (req, res, next) => {
     requireRoles(req, ['admin', 'pembimbing_lapangan'])
     if (!['verified', 'needs_revision', 'rejected'].includes(req.body.status)) throw createHttpError(400, 'Status dokumen tidak valid.')
 
+    const applicationId = Number(req.params.id ?? req.params.applicationId ?? req.params.application_id)
+    const documentId = Number(req.params.documentId ?? req.params.docId ?? req.params.document_id)
+    if (!Number.isInteger(applicationId) || applicationId < 1) throw createHttpError(400, 'application_id tidak valid.')
+    if (!Number.isInteger(documentId) || documentId < 1) throw createHttpError(400, 'document_id tidak valid.')
+
     const documentNotes = (req.body.adminNotes ?? req.body.admin_notes ?? req.body.catatanAdmin ?? '').trim()
-    const documentId = req.params.documentId ?? req.params.docId
-    const document = await applications.updateDocumentStatus(req.params.id, documentId, req.body.status, documentNotes)
+    const document = await applications.updateDocumentStatus(applicationId, documentId, req.body.status, documentNotes)
     if (!document) throw createHttpError(404, 'Dokumen tidak ditemukan.')
 
-    const application = await applications.getApplicationById(req.params.id)
+    const application = await applications.getApplicationById(applicationId)
     await applications.createNotification(application.userId, 'Status dokumen berubah', `Status dokumen ${document.jenisDokumen} menjadi ${document.status}.`)
     return res.json(document)
   } catch (error) {
