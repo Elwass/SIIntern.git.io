@@ -110,8 +110,10 @@ async function getStudentOwnedApplicationOrThrow(req) {
 
 async function saveUploadedFile(applicationId, jenisDokumen, fileName, base64 = '') {
   const safeFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '-')
-  const relativePath = `/uploads/application-${applicationId}/${jenisDokumen}-${Date.now()}-${safeFileName}`
-  const absolutePath = join(uploadRoot, `application-${applicationId}`, `${jenisDokumen}-${Date.now()}-${safeFileName}`)
+  const timestamp = Date.now()
+  const storedFileName = `${jenisDokumen}-${timestamp}-${safeFileName}`
+  const relativePath = `/uploads/application-${applicationId}/${storedFileName}`
+  const absolutePath = join(uploadRoot, `application-${applicationId}`, storedFileName)
   await mkdir(dirname(absolutePath), { recursive: true })
   await writeFile(absolutePath, base64 ? Buffer.from(base64, 'base64') : Buffer.alloc(0))
   return relativePath
