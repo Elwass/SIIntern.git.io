@@ -1,5 +1,13 @@
 import { getAuthHeader } from './auth.js'
 
+const backendBaseUrl = ((import.meta?.env?.VITE_API_BASE_URL) || 'http://localhost:5000').replace(/\/$/, '')
+
+export function resolveFileUrl(fileUrl = '') {
+  if (!fileUrl) return ''
+  if (/^https?:\/\//i.test(fileUrl)) return fileUrl
+  return `${backendBaseUrl}${fileUrl.startsWith('/') ? '' : '/'}${fileUrl}`
+}
+
 export const applicationStatusLabels = {
   draft: 'Belum Diajukan',
   pending: 'Diajukan',
