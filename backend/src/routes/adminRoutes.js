@@ -2,12 +2,16 @@ import { Router } from 'express'
 import {
   approveAdminApplication,
   assignApplicationMentor,
+  createAdminMentor,
+  deleteAdminMentor,
   getAdminApplicationDetail,
+  listAdminMentors,
   listUsers,
   listAdminApplications,
   rejectAdminApplication,
   updateAdminApplicationStatus,
   updateAdminDocumentStatus,
+  updateAdminMentor,
   verifyAdminApplication,
 } from '../controllers/applicationController.js'
 import { requireCompleteApplicationDocuments } from '../middleware/applicationValidation.js'
@@ -21,6 +25,10 @@ const verificationRoles = ['admin']
 
 router.use(authMiddleware)
 router.get('/users', authorizeRoles(reviewRoles), asyncHandler(listUsers))
+router.get('/mentors', authorizeRoles(reviewRoles), asyncHandler(listAdminMentors))
+router.post('/mentors', authorizeRoles(verificationRoles), asyncHandler(createAdminMentor))
+router.put('/mentors/:id', authorizeRoles(verificationRoles), asyncHandler(updateAdminMentor))
+router.delete('/mentors/:id', authorizeRoles(verificationRoles), asyncHandler(deleteAdminMentor))
 router.get('/applications', authorizeRoles(reviewRoles), asyncHandler(listAdminApplications))
 router.get('/applications/:id', authorizeRoles(reviewRoles), asyncHandler(getAdminApplicationDetail))
 router.put('/applications/:id/verify', authorizeRoles(verificationRoles), asyncHandler(requireCompleteApplicationDocuments), asyncHandler(verifyAdminApplication))

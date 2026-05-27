@@ -1,4 +1,5 @@
 import { mkdir, writeFile } from 'node:fs/promises'
+import crypto from 'node:crypto'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { applicationStatuses, documentStatuses, internshipFields, requiredDocumentTypes } from '../constants/applicationConstants.js'
@@ -432,6 +433,72 @@ export const listUsers = async (req, res, next) => {
       return res.json({ data: await users.listMentors() })
     }
     throw createHttpError(400, 'Filter role tidak valid.')
+  } catch (error) {
+    return next(error)
+  }
+}
+
+export const listAdminMentors = async (req, res, next) => {
+  try {
+    requireRoles(req, ['admin', 'pembimbing_lapangan'])
+    return res.json({ data: await users.listMentors() })
+  } catch (error) {
+    return next(error)
+  }
+}
+
+export const createAdminMentor = async (req, res, next) => {
+  try {
+    requireRoles(req, ['admin'])
+    const name = String(req.body.name || '').trim()
+    const email = String(req.body.email || '').trim().toLowerCase()
+    const password = String(req.body.password || '')
+    if (!name || !email || !password) throw createHttpError(400, 'Nama, email, dan password mentor wajib diisi.')
+    if (!validateEmail(email)) throw createHttpError(400, 'Format email mentor tidak valid.')
+    if (password.length < 6) throw createHttpError(400, 'Password mentor minimal 6 karakter.')
+
+    const existing = await users.findUserByEmail(email)
+    if (existing) throw createHttpError(409, 'Email mentor sudah terdaftar.')
+
+    const passwordHash = crypto.createHash('sha256').update(password).digest('hex')
+    const mentor = await users.createUser({ name, email, passwordHash, role: 'mentor' })
+    return res.status(201).json({ message: 'Mentor berhasil ditambahkan.', data: mentor })
+  } catch (error) {
+    return next(error)
+  }
+}
+
+export const updateAdminMentor = async (req, res, next) => {
+  try {
+    requireRoles(req, ['admin'])
+    const mentorId = Number(req.params.id)
+    if (!Number.isInteger(mentorId) || mentorId < 1) throw createHttpError(400, 'ID mentor tidak valid.')
+    const name = String(req.body.name || '').trim()
+    const email = String(req.body.email || '').trim().toLowerCase()
+    if (!name || !email) throw createHttpError(400, 'Nama dan email mentor wajib diisi.')
+    if (!validateEmail(email)) throw createHttpError(400, 'Format email mentor tidak valid.')
+
+    const mentor = await users.findUserById(mentorId)
+    if (!mentor || mentor.role !== 'mentor') throw createHttpError(404, 'Mentor tidak ditemukan.')
+    const emailOwner = await users.findUserByEmail(email)
+    if (emailOwner && emailOwner.id !== mentorId) throw createHttpError(409, 'Email mentor sudah digunakan user lain.')
+
+    const updated = await users.updateMentor(mentorId, { name, email })
+    return res.json({ message: 'Mentor berhasil diperbarui.', data: updated })
+  } catch (error) {
+    return next(error)
+  }
+}
+
+export const deleteAdminMentor = async (req, res, next) => {
+  try {
+    requireRoles(req, ['admin'])
+    const mentorId = Number(req.params.id)
+    if (!Number.isInteger(mentorId) || mentorId < 1) throw createHttpError(400, 'ID mentor tidak valid.')
+
+    const deleted = await users.deleteMentor(mentorId)
+    if (!deleted) throw createHttpError(404, 'Mentor tidak ditemukan.')
+    return res.status(204).send()
   } catch (error) {
     return next(error)
   }

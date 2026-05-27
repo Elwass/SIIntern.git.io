@@ -41,3 +41,20 @@ export async function listMentors() {
   )
   return rows.map(toUser)
 }
+
+export async function updateMentor(id, payload = {}) {
+  await pool.query(
+    `UPDATE users
+     SET name = ?, email = LOWER(?), updated_at = CURRENT_TIMESTAMP
+     WHERE id = ? AND role = 'mentor'`,
+    [payload.name, payload.email, id],
+  )
+  return findUserById(id)
+}
+
+export async function deleteMentor(id) {
+  const mentor = await findUserById(id)
+  if (!mentor || mentor.role !== 'mentor') return null
+  await pool.query('DELETE FROM users WHERE id = ? AND role = ?', [id, 'mentor'])
+  return mentor
+}
