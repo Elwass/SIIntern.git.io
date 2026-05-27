@@ -401,14 +401,20 @@ export const updateAdminDocumentStatus = async (req, res, next) => {
 export const assignApplicationMentor = async (req, res, next) => {
   try {
     requireRoles(req, ['admin', 'pembimbing_lapangan'])
-    const application = await applications.getApplicationById(req.params.id)
+    const applicationId = Number(req.params.id)
+    if (!Number.isInteger(applicationId) || applicationId < 1) throw createHttpError(400, 'ID pendaftaran tidak valid.')
+
+    const application = await applications.getApplicationById(applicationId)
     if (!application) throw createHttpError(404, 'Pendaftaran magang tidak ditemukan.')
     if (!['accepted', 'verified'].includes(application.status)) {
       throw createHttpError(400, 'Mentor hanya dapat ditetapkan untuk pendaftaran terverifikasi atau diterima.')
     }
 
-    const mentor = await users.findUserById(Number(req.body.mentorId))
-    if (!mentor || !['mentor', 'pembimbing_lapangan'].includes(mentor.role)) throw createHttpError(400, 'User mentor tidak valid.')
+    const mentorId = Number(req.body.mentorId)
+    if (!Number.isInteger(mentorId) || mentorId < 1) throw createHttpError(400, 'Mentor wajib dipilih terlebih dahulu.')
+
+    const mentor = await users.findUserById(mentorId)
+    if (!mentor || mentor.role !== 'mentor') throw createHttpError(400, 'User mentor tidak valid.')
 
     const updated = await applications.setApplicationMentor(application.id, mentor.id)
     await applications.upsertMentorAssignment(application.id, mentor.id, req.user.id)

@@ -18,7 +18,7 @@ export default function AdminApplicationsPage() {
   const [rows, setRows] = useState([])
   const [selected, setSelected] = useState(null)
   const [note, setNote] = useState('')
-  const [mentorId, setMentorId] = useState('2')
+  const [mentorId, setMentorId] = useState('')
   const [error, setError] = useState('')
 
   const loadRows = async () => {
@@ -49,6 +49,7 @@ export default function AdminApplicationsPage() {
     try { await updateAdminDocumentStatus(selected.id, documentId, { status, catatanAdmin: note }); await loadDetail(selected.id) } catch (err) { setError(err.message) }
   }
   const assignMentor = async () => {
+    if (!mentorId) { setError('Pilih mentor terlebih dahulu.'); return }
     try { const result = await assignApplicationMentor(selected.id, Number(mentorId)); setSelected({ ...result.application, ...result.profile, email: result.user?.email || '', documents: result.documents || [], mentors: result.mentors || [], mentor: result.mentor }); await loadRows() } catch (err) { setError(err.message) }
   }
 
