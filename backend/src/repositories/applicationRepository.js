@@ -235,13 +235,7 @@ export async function updateDocumentStatus(applicationId, documentId, status, ca
     [status, catatanAdmin, applicationId, documentId],
   )
   if (!result?.affectedRows) {
-    const [existingRows] = await pool.query('SELECT id, application_id FROM application_documents WHERE id = ? LIMIT 1', [documentId])
-    const existing = existingRows[0]
-    if (!existing) return null
-
-    const error = new Error(`Dokumen ${documentId} terhubung ke pendaftaran ${existing.application_id}, bukan ${applicationId}.`)
-    error.statusCode = 400
-    throw error
+    return null
   }
 
   const [rows] = await pool.query('SELECT * FROM application_documents WHERE application_id = ? AND id = ? LIMIT 1', [applicationId, documentId])
