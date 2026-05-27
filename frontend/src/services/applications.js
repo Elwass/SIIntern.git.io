@@ -1,8 +1,17 @@
 import { getAuthHeader } from './auth.js'
 
+const backendBaseUrl = ((import.meta?.env?.VITE_API_BASE_URL) || 'http://localhost:5000').replace(/\/$/, '')
+
+export function resolveFileUrl(fileUrl = '') {
+  if (!fileUrl) return ''
+  if (/^https?:\/\//i.test(fileUrl)) return fileUrl
+  return `${backendBaseUrl}${fileUrl.startsWith('/') ? '' : '/'}${fileUrl}`
+}
+
 export const applicationStatusLabels = {
+  draft: 'Belum Diajukan',
   pending: 'Diajukan',
-  verified: 'Terverifikasi',
+  verified: 'Verifikasi Admin',
   accepted: 'Diterima',
   rejected: 'Ditolak',
 }
@@ -59,6 +68,13 @@ export function updateAdminApplicationStatus(id, payload) {
   return apiRequest(`/api/admin/applications/${id}/status`, { method: 'PATCH', body: JSON.stringify(payload) })
 }
 export function updateAdminDocumentStatus(applicationId, documentId, payload) { return apiRequest(`/api/admin/applications/${applicationId}/documents/${documentId}/status`, { method: 'PATCH', body: JSON.stringify(payload) }) }
-export function assignApplicationMentor(id, mentorId) { return apiRequest(`/api/admin/applications/${id}/assign-mentor`, { method: 'PATCH', body: JSON.stringify({ mentorId }) }) }
+export function listMentorUsers() { return apiRequest('/api/admin/users?role=mentor') }
+
+export function listMentors() { return apiRequest('/api/admin/mentors') }
+export function createMentor(payload) { return apiRequest('/api/admin/mentors', { method: 'POST', body: JSON.stringify(payload) }) }
+export function updateMentor(id, payload) { return apiRequest(`/api/admin/mentors/${id}`, { method: 'PUT', body: JSON.stringify(payload) }) }
+export function deleteMentor(id) { return apiRequest(`/api/admin/mentors/${id}`, { method: 'DELETE' }) }
+
+export function assignApplicationMentor(id, mentorId) { return apiRequest(`/api/admin/applications/${id}/assign-mentor`, { method: 'POST', body: JSON.stringify({ mentorId }) }) }
 export function listMentorApplications() { return apiRequest('/api/mentor/applications') }
 export function getMentorApplication(id) { return apiRequest(`/api/mentor/applications/${id}`) }
