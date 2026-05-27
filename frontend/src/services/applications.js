@@ -68,6 +68,7 @@ export function updateAdminApplicationStatus(id, payload) {
   return apiRequest(`/api/admin/applications/${id}/status`, { method: 'PATCH', body: JSON.stringify(payload) })
 }
 export function updateAdminDocumentStatus(applicationId, documentId, payload) { return apiRequest(`/api/admin/applications/${applicationId}/documents/${documentId}/status`, { method: 'PATCH', body: JSON.stringify(payload) }) }
-export function assignApplicationMentor(id, mentorId) { return apiRequest(`/api/admin/applications/${id}/assign-mentor`, { method: 'PATCH', body: JSON.stringify({ mentorId }) }) }
+export function listMentorUsers() { return apiRequest('/api/admin/users?role=mentor') }
+export function assignApplicationMentor(id, mentorId) { return apiRequest(`/api/admin/applications/${id}/assign-mentor`, { method: 'POST', body: JSON.stringify({ mentorId }) }) }
 export function listMentorApplications() { return apiRequest('/api/mentor/applications') }
 export function getMentorApplication(id) { return apiRequest(`/api/mentor/applications/${id}`) }

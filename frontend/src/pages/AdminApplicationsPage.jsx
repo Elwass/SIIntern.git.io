@@ -5,6 +5,7 @@ import {
   assignApplicationMentor,
   documentStatusLabels,
   getAdminApplication,
+  listMentorUsers,
   listAdminApplications,
   resolveFileUrl,
   updateAdminApplicationStatus,
@@ -20,6 +21,7 @@ export default function AdminApplicationsPage() {
   const [note, setNote] = useState('')
   const [mentorId, setMentorId] = useState('')
   const [error, setError] = useState('')
+  const [mentorOptions, setMentorOptions] = useState([])
 
   const loadRows = async () => {
     try {
@@ -40,7 +42,10 @@ export default function AdminApplicationsPage() {
       setNote('')
     } catch (err) { setError(err.message) }
   }
-  useEffect(() => { loadRows() }, [])
+  useEffect(() => {
+    loadRows()
+    listMentorUsers().then((result) => setMentorOptions(result.data || [])).catch((err) => setError(err.message))
+  }, [])
 
   const changeStatus = async (status) => {
     try { const result = await updateAdminApplicationStatus(selected.id, { status, catatanAdmin: note }); setSelected({ ...result.application, ...result.profile, email: result.user?.email || '', documents: result.documents || [], mentors: result.mentors || [], mentor: result.mentor }); await loadRows() } catch (err) { setError(err.message) }
@@ -77,7 +82,7 @@ export default function AdminApplicationsPage() {
             <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Catatan admin opsional / catatan dokumen" className="mt-5 w-full rounded-xl border p-3 text-sm" rows="3" />
             <div className="mt-4 flex flex-wrap gap-2">{selected.status === 'pending' && <button onClick={() => changeStatus('verified')} className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-semibold text-white">Verifikasi</button>}{selected.status === 'verified' && <button onClick={() => changeStatus('accepted')} className="rounded-xl bg-red-700 px-3 py-2 text-xs font-semibold text-white">Terima</button>}{['pending', 'verified'].includes(selected.status) && <button onClick={() => changeStatus('rejected')} className="rounded-xl bg-slate-700 px-3 py-2 text-xs font-semibold text-white">Tolak</button>}</div>
             <div className="mt-5"><h3 className="font-bold">Dokumen</h3><div className="mt-2 space-y-2">{selected.documents.map((doc) => <div key={doc.id} className="rounded-2xl border p-3 text-sm"><div className="flex justify-between gap-3"><a href={resolveFileUrl(doc.fileUrl)} target="_blank" rel="noreferrer" className="font-semibold text-red-700">{doc.jenisDokumen}</a><span>{documentStatusLabels[doc.status]}</span></div><p className="text-slate-500">{doc.fileName}</p>{doc.catatanAdmin && <p className="text-amber-700">{doc.catatanAdmin}</p>}<div className="mt-2 flex gap-2"><button onClick={() => changeDocumentStatus(doc.id, 'verified')} className="text-xs font-semibold text-emerald-700">Verifikasi</button><button onClick={() => changeDocumentStatus(doc.id, 'needs_revision')} className="text-xs font-semibold text-amber-700">Perbaikan</button><button onClick={() => changeDocumentStatus(doc.id, 'rejected')} className="text-xs font-semibold text-red-700">Tolak</button></div></div>)}</div></div>
-            {selected.status === 'accepted' && <div className="mt-5 flex gap-2"><select value={mentorId} onChange={(e) => setMentorId(e.target.value)} className="rounded-xl border p-3 text-sm"><option value="">Pilih mentor</option>{selected.mentors.map((mentor) => <option key={mentor.id} value={mentor.id}>{mentor.name}</option>)}</select><button onClick={assignMentor} className="rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white">Assign Mentor</button></div>}
+            {selected.status === 'accepted' && <div className="mt-5 flex gap-2"><select value={mentorId} onChange={(e) => setMentorId(e.target.value)} className="rounded-xl border p-3 text-sm" disabled={Boolean(selected.mentor?.id)}><option value="">Pilih mentor</option>{mentorOptions.map((mentor) => <option key={mentor.id} value={mentor.id}>{mentor.name}</option>)}</select><button onClick={assignMentor} disabled={Boolean(selected.mentor?.id)} className="rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">{selected.mentor?.id ? 'Mentor Ditetapkan' : 'Assign Mentor'}</button></div>}
           </section>
         )}
       </div>

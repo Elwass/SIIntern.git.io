@@ -424,6 +424,19 @@ export const assignApplicationMentor = async (req, res, next) => {
   }
 }
 
+export const listUsers = async (req, res, next) => {
+  try {
+    requireRoles(req, ['admin', 'pembimbing_lapangan'])
+    const role = String(req.query.role || '').trim().toLowerCase()
+    if (role === 'mentor') {
+      return res.json({ data: await users.listMentors() })
+    }
+    throw createHttpError(400, 'Filter role tidak valid.')
+  } catch (error) {
+    return next(error)
+  }
+}
+
 export const listMentorApplications = async (req, res, next) => {
   try {
     requireRoles(req, ['mentor', 'pembimbing_lapangan'])
