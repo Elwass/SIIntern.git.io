@@ -6,6 +6,7 @@ import {
   documentStatusLabels,
   getAdminApplication,
   listAdminApplications,
+  resolveFileUrl,
   updateAdminApplicationStatus,
   updateAdminDocumentStatus,
 } from '../services/applications'
@@ -17,11 +18,20 @@ export default function AdminApplicationsPage() {
   const [rows, setRows] = useState([])
   const [selected, setSelected] = useState(null)
   const [note, setNote] = useState('')
-  const [mentorId, setMentorId] = useState('2')
+  const [mentorId, setMentorId] = useState('')
   const [error, setError] = useState('')
 
   const loadRows = async () => {
-    try { const result = await listAdminApplications(filters); setRows(result.data); if (result.data[0] && !selected) loadDetail(result.data[0].id) } catch (err) { setError(err.message) }
+    try {
+      const result = await listAdminApplications(filters)
+      const deduplicated = Object.values(result.data.reduce((accumulator, row) => {
+        const key = `${row.userId}-${row.periodeMulai}-${row.periodeSelesai}`
+        if (!accumulator[key] || new Date(row.createdAt) > new Date(accumulator[key].createdAt)) accumulator[key] = row
+        return accumulator
+      }, {}))
+      setRows(deduplicated)
+      if (deduplicated[0] && !selected) loadDetail(deduplicated[0].id)
+    } catch (err) { setError(err.message) }
   }
   const loadDetail = async (id) => {
     try {
@@ -39,6 +49,7 @@ export default function AdminApplicationsPage() {
     try { await updateAdminDocumentStatus(selected.id, documentId, { status, catatanAdmin: note }); await loadDetail(selected.id) } catch (err) { setError(err.message) }
   }
   const assignMentor = async () => {
+    if (!mentorId) { setError('Pilih mentor terlebih dahulu.'); return }
     try { const result = await assignApplicationMentor(selected.id, Number(mentorId)); setSelected({ ...result.application, ...result.profile, email: result.user?.email || '', documents: result.documents || [], mentors: result.mentors || [], mentor: result.mentor }); await loadRows() } catch (err) { setError(err.message) }
   }
 
@@ -65,7 +76,7 @@ export default function AdminApplicationsPage() {
             <div className="mt-4 grid gap-2 text-sm md:grid-cols-2"><p><b>Program Studi:</b> {selected.programStudi}</p><p><b>Email:</b> {selected.email}</p><p><b>HP:</b> {selected.noHp}</p><p><b>Periode:</b> {selected.periodeMulai} s.d. {selected.periodeSelesai}</p><p className="md:col-span-2"><b>Bidang:</b> {selected.bidangMagang}</p><p className="md:col-span-2"><b>Motivasi:</b> {selected.motivasi}</p></div>
             <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Catatan admin opsional / catatan dokumen" className="mt-5 w-full rounded-xl border p-3 text-sm" rows="3" />
             <div className="mt-4 flex flex-wrap gap-2">{selected.status === 'pending' && <button onClick={() => changeStatus('verified')} className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-semibold text-white">Verifikasi</button>}{selected.status === 'verified' && <button onClick={() => changeStatus('accepted')} className="rounded-xl bg-red-700 px-3 py-2 text-xs font-semibold text-white">Terima</button>}{['pending', 'verified'].includes(selected.status) && <button onClick={() => changeStatus('rejected')} className="rounded-xl bg-slate-700 px-3 py-2 text-xs font-semibold text-white">Tolak</button>}</div>
-            <div className="mt-5"><h3 className="font-bold">Dokumen</h3><div className="mt-2 space-y-2">{selected.documents.map((doc) => <div key={doc.id} className="rounded-2xl border p-3 text-sm"><div className="flex justify-between gap-3"><a href={doc.fileUrl} className="font-semibold text-red-700">{doc.jenisDokumen}</a><span>{documentStatusLabels[doc.status]}</span></div><p className="text-slate-500">{doc.fileName}</p>{doc.catatanAdmin && <p className="text-amber-700">{doc.catatanAdmin}</p>}<div className="mt-2 flex gap-2"><button onClick={() => changeDocumentStatus(doc.id, 'verified')} className="text-xs font-semibold text-emerald-700">Verifikasi</button><button onClick={() => changeDocumentStatus(doc.id, 'needs_revision')} className="text-xs font-semibold text-amber-700">Perbaikan</button><button onClick={() => changeDocumentStatus(doc.id, 'rejected')} className="text-xs font-semibold text-red-700">Tolak</button></div></div>)}</div></div>
+            <div className="mt-5"><h3 className="font-bold">Dokumen</h3><div className="mt-2 space-y-2">{selected.documents.map((doc) => <div key={doc.id} className="rounded-2xl border p-3 text-sm"><div className="flex justify-between gap-3"><a href={resolveFileUrl(doc.fileUrl)} target="_blank" rel="noreferrer" className="font-semibold text-red-700">{doc.jenisDokumen}</a><span>{documentStatusLabels[doc.status]}</span></div><p className="text-slate-500">{doc.fileName}</p>{doc.catatanAdmin && <p className="text-amber-700">{doc.catatanAdmin}</p>}<div className="mt-2 flex gap-2"><button onClick={() => changeDocumentStatus(doc.id, 'verified')} className="text-xs font-semibold text-emerald-700">Verifikasi</button><button onClick={() => changeDocumentStatus(doc.id, 'needs_revision')} className="text-xs font-semibold text-amber-700">Perbaikan</button><button onClick={() => changeDocumentStatus(doc.id, 'rejected')} className="text-xs font-semibold text-red-700">Tolak</button></div></div>)}</div></div>
             {selected.status === 'accepted' && <div className="mt-5 flex gap-2"><select value={mentorId} onChange={(e) => setMentorId(e.target.value)} className="rounded-xl border p-3 text-sm"><option value="">Pilih mentor</option>{selected.mentors.map((mentor) => <option key={mentor.id} value={mentor.id}>{mentor.name}</option>)}</select><button onClick={assignMentor} className="rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white">Assign Mentor</button></div>}
           </section>
         )}
