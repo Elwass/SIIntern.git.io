@@ -54,3 +54,16 @@ test('admin status helper sends PUT request to RESTful admin verification endpoi
   const result = await updateAdminApplicationStatus(1, { status: 'verified', catatanAdmin: 'Lengkap' })
   assert.equal(result.status, 'verified')
 })
+
+test('assign mentor helper sends POST request to assign-mentor endpoint', async () => {
+  global.fetch = async (url, options = {}) => {
+    assert.equal(url, '/api/admin/applications/1/assign-mentor')
+    assert.equal(options.method, 'POST')
+    assert.deepEqual(JSON.parse(options.body), { mentorId: 5 })
+    return new Response(JSON.stringify({ ok: true }), { status: 200 })
+  }
+
+  const { assignApplicationMentor } = await import('../applications.js')
+  const result = await assignApplicationMentor(1, 5)
+  assert.equal(result.ok, true)
+})

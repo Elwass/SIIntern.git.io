@@ -133,3 +133,17 @@ test('admin can verify, accept, and assign mentor so mentor sees student', async
   await listMentorApplications({ user: { id: 2, role: 'mentor' } }, mentorList)
   assert.equal(mentorList.payload.length, 1)
 })
+
+test('admin document verification only applies to matching application_id', async () => {
+  const createRes = createResponse()
+  await createStudentApplication({ user: { id: 4, role: 'student', email: 'student@example.com' }, body: registrationPayload }, createRes)
+  const applicationId = createRes.payload.application.id
+
+  const uploadRes = createResponse()
+  await createStudentApplicationDocument({ user: { id: 4, role: 'student' }, params: { id: applicationId }, body: { jenisDokumen: 'curriculum_vitae', fileName: 'cv.pdf', fileSize: 1000, mimeType: 'application/pdf' } }, uploadRes)
+
+  const wrongAppRes = createResponse()
+  await updateAdminDocumentStatus({ user: { id: 1, role: 'admin' }, params: { id: 999, documentId: uploadRes.payload.id }, body: { status: 'verified' } }, wrongAppRes)
+  assert.equal(wrongAppRes.statusCode, 404)
+  assert.equal(wrongAppRes.payload.message, 'Dokumen tidak ditemukan.')
+})
