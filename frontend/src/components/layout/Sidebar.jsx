@@ -17,6 +17,7 @@ const studentLinks = [
 const adminLinks = [
   ['/admin', 'Dashboard Admin'],
   ['/admin/applications', 'Pendaftaran Magang'],
+  ['/admin/mentors', 'Mentor'],
   ['/report', 'Laporan & Penilaian'],
 ]
 

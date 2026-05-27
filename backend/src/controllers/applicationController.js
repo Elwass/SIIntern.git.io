@@ -1,4 +1,5 @@
 import { mkdir, writeFile } from 'node:fs/promises'
+import crypto from 'node:crypto'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { applicationStatuses, documentStatuses, internshipFields, requiredDocumentTypes } from '../constants/applicationConstants.js'
@@ -7,8 +8,9 @@ import * as defaultUsers from '../repositories/userRepository.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const uploadRoot = join(__dirname, '..', 'uploads')
-const editableStatuses = ['pending']
+const editableStatuses = ['draft']
 const allowedAdminTransitions = {
+  draft: ['pending'],
   pending: ['verified', 'rejected'],
   verified: ['accepted', 'rejected'],
 }
@@ -64,6 +66,7 @@ function validatePayload(payload) {
   if (!Number.isInteger(payload.semester) || payload.semester < 1 || payload.semester > 14) return 'Semester harus berupa angka 1 sampai 14.'
   if (!internshipFields.includes(payload.bidangMagang)) return 'Bidang magang tidak valid.'
   if (payload.periodeSelesai < payload.periodeMulai) return 'Periode selesai tidak boleh sebelum periode mulai.'
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(payload.periodeMulai) || !/^\d{4}-\d{2}-\d{2}$/.test(payload.periodeSelesai)) return 'Format periode harus YYYY-MM-DD.'
   return ''
 }
 
@@ -94,7 +97,7 @@ async function composeDetail(application) {
 // causing double responses (ERR_HTTP_HEADERS_SENT).
 function assertEditableOrThrow(application) {
   if (!editableStatuses.includes(application.status)) {
-    throw createHttpError(400, 'Pendaftaran hanya dapat diubah saat status pendaftaran masih Diajukan.', null, 'error')
+    throw createHttpError(400, 'Pendaftaran hanya dapat diubah saat status pendaftaran masih Belum Diajukan (draft).', null, 'error')
   }
 }
 
@@ -108,8 +111,10 @@ async function getStudentOwnedApplicationOrThrow(req) {
 
 async function saveUploadedFile(applicationId, jenisDokumen, fileName, base64 = '') {
   const safeFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '-')
-  const relativePath = `/uploads/application-${applicationId}/${jenisDokumen}-${Date.now()}-${safeFileName}`
-  const absolutePath = join(uploadRoot, `application-${applicationId}`, `${jenisDokumen}-${Date.now()}-${safeFileName}`)
+  const timestamp = Date.now()
+  const storedFileName = `${jenisDokumen}-${timestamp}-${safeFileName}`
+  const relativePath = `/uploads/application-${applicationId}/${storedFileName}`
+  const absolutePath = join(uploadRoot, `application-${applicationId}`, storedFileName)
   await mkdir(dirname(absolutePath), { recursive: true })
   await writeFile(absolutePath, base64 ? Buffer.from(base64, 'base64') : Buffer.alloc(0))
   return relativePath
@@ -140,13 +145,30 @@ export const getCurrentStudentApplication = async (req, res, next) => {
 export const createStudentApplication = async (req, res, next) => {
   try {
     requireRoles(req, ['student'])
+    const userExists = await applications.userExists(req.user.id)
+    if (!userExists) throw createHttpError(403, 'Akun pengguna tidak valid.')
+
     const current = await applications.getCurrentApplication(req.user.id)
-    if (current) throw createHttpError(409, 'Anda sudah memiliki pendaftaran aktif.')
 
     const payload = pickPayload(req.body)
     const validation = validatePayload(payload)
     if (validation) throw createHttpError(400, validation)
     if (!validateEmail(req.body.email || req.user.email)) throw createHttpError(400, 'Format email tidak valid.')
+
+    if (current) {
+      if (!editableStatuses.includes(current.status)) {
+        throw createHttpError(409, 'Anda sudah memiliki pendaftaran aktif.')
+      }
+
+      await applications.upsertStudentProfile(req.user.id, payload)
+      const updated = await applications.updateApplication(current.id, payload)
+      const documents = await applications.listDocuments(current.id)
+      const profile = await applications.getStudentProfile(req.user.id)
+      return res.status(200).json(composeCurrent(profile, { ...updated, documentSummary: documentSummary(documents) }, documents))
+    }
+
+    const duplicate = await applications.findApplicationByUserAndPeriod(req.user.id, payload.periodeMulai, payload.periodeSelesai)
+    if (duplicate) throw createHttpError(400, 'Anda sudah pernah mendaftar pada periode magang yang sama.')
 
     const profile = await applications.upsertStudentProfile(req.user.id, payload)
     const application = await applications.createApplication(req.user.id, payload)
@@ -159,12 +181,20 @@ export const createStudentApplication = async (req, res, next) => {
 export const updateStudentApplication = async (req, res, next) => {
   try {
     requireRoles(req, ['student'])
+    const userExists = await applications.userExists(req.user.id)
+    if (!userExists) throw createHttpError(403, 'Akun pengguna tidak valid.')
+
     const application = await getStudentOwnedApplicationOrThrow(req)
     assertEditableOrThrow(application)
 
     const payload = pickPayload(req.body)
     const validation = validatePayload(payload)
     if (validation) throw createHttpError(400, validation)
+
+    const duplicate = await applications.findApplicationByUserAndPeriod(req.user.id, payload.periodeMulai, payload.periodeSelesai)
+    if (duplicate && duplicate.id !== application.id) {
+      throw createHttpError(400, 'Periode magang ini sudah digunakan pada pendaftaran lain.')
+    }
 
     await applications.upsertStudentProfile(req.user.id, payload)
     const updated = await applications.updateApplication(application.id, payload)
@@ -240,17 +270,27 @@ export const submitStudentApplication = async (req, res, next) => {
   try {
     requireRoles(req, ['student'])
     const application = await getStudentOwnedApplicationOrThrow(req)
-    assertEditableOrThrow(application)
+    if (application.status !== 'draft') {
+      throw createHttpError(400, 'Pendaftaran hanya dapat diajukan saat status masih Belum Diajukan.', null, 'error')
+    }
 
     const profile = await applications.getStudentProfile(req.user.id)
     if (!profile) throw createHttpError(400, 'Data mahasiswa belum lengkap.')
 
     const documents = await applications.listDocuments(application.id)
-    const missing = documentSummary(documents).missing
+    const uploadedRequiredDocumentCount = await applications.countUploadedRequiredDocuments(application.id)
+    const summary = documentSummary(documents)
+    const missing = summary.missing
+    if (uploadedRequiredDocumentCount < requiredDocumentTypes.length) {
+      throw createHttpError(400, `Dokumen wajib belum lengkap: ${missing.join(', ')}.`)
+    }
     if (missing.length) throw createHttpError(400, `Dokumen wajib belum lengkap: ${missing.join(', ')}.`)
 
     const updated = await applications.setApplicationStatus(application.id, 'pending', application.catatanAdmin || '')
-    return res.json(composeCurrent(profile, { ...updated, documentSummary: documentSummary(documents) }, documents))
+    return res.json({
+      message: 'Pendaftaran berhasil diajukan.',
+      ...composeCurrent(profile, { ...updated, documentSummary: summary }, documents),
+    })
   } catch (error) {
     return next(error)
   }
@@ -295,6 +335,7 @@ export const updateAdminApplicationStatus = async (req, res, next) => {
     if (!application) throw createHttpError(404, 'Pendaftaran magang tidak ditemukan.')
 
     const nextStatus = statusAliases[req.body.status] || req.body.status
+    if (!nextStatus) throw createHttpError(400, 'Status pendaftaran wajib diisi.')
     if (!applicationStatuses.includes(nextStatus)) throw createHttpError(400, 'Status pendaftaran tidak valid.')
     if (!(allowedAdminTransitions[application.status] || []).includes(nextStatus)) {
       throw createHttpError(400, `Status ${application.status} tidak dapat diubah menjadi ${nextStatus}.`)
@@ -341,11 +382,16 @@ export const updateAdminDocumentStatus = async (req, res, next) => {
     requireRoles(req, ['admin', 'pembimbing_lapangan'])
     if (!['verified', 'needs_revision', 'rejected'].includes(req.body.status)) throw createHttpError(400, 'Status dokumen tidak valid.')
 
+    const applicationId = Number(req.params.id ?? req.params.applicationId ?? req.params.application_id)
+    const documentId = Number(req.params.documentId ?? req.params.docId ?? req.params.document_id)
+    if (!Number.isInteger(applicationId) || applicationId < 1) throw createHttpError(400, 'application_id tidak valid.')
+    if (!Number.isInteger(documentId) || documentId < 1) throw createHttpError(400, 'document_id tidak valid.')
+
     const documentNotes = (req.body.adminNotes ?? req.body.admin_notes ?? req.body.catatanAdmin ?? '').trim()
-    const document = await applications.updateDocumentStatus(req.params.id, req.params.documentId, req.body.status, documentNotes)
+    const document = await applications.updateDocumentStatus(applicationId, documentId, req.body.status, documentNotes)
     if (!document) throw createHttpError(404, 'Dokumen tidak ditemukan.')
 
-    const application = await applications.getApplicationById(req.params.id)
+    const application = await applications.getApplicationById(applicationId)
     await applications.createNotification(application.userId, 'Status dokumen berubah', `Status dokumen ${document.jenisDokumen} menjadi ${document.status}.`)
     return res.json(document)
   } catch (error) {
@@ -356,18 +402,103 @@ export const updateAdminDocumentStatus = async (req, res, next) => {
 export const assignApplicationMentor = async (req, res, next) => {
   try {
     requireRoles(req, ['admin', 'pembimbing_lapangan'])
-    const application = await applications.getApplicationById(req.params.id)
+    const applicationId = Number(req.params.id)
+    if (!Number.isInteger(applicationId) || applicationId < 1) throw createHttpError(400, 'ID pendaftaran tidak valid.')
+
+    const application = await applications.getApplicationById(applicationId)
     if (!application) throw createHttpError(404, 'Pendaftaran magang tidak ditemukan.')
     if (!['accepted', 'verified'].includes(application.status)) {
       throw createHttpError(400, 'Mentor hanya dapat ditetapkan untuk pendaftaran terverifikasi atau diterima.')
     }
 
-    const mentor = await users.findUserById(Number(req.body.mentorId))
-    if (!mentor || !['mentor', 'pembimbing_lapangan'].includes(mentor.role)) throw createHttpError(400, 'User mentor tidak valid.')
+    const mentorId = Number(req.body.mentorId)
+    if (!Number.isInteger(mentorId) || mentorId < 1) throw createHttpError(400, 'Mentor wajib dipilih terlebih dahulu.')
+
+    const mentor = await users.findUserById(mentorId)
+    if (!mentor || mentor.role !== 'mentor') throw createHttpError(400, 'User mentor tidak valid.')
 
     const updated = await applications.setApplicationMentor(application.id, mentor.id)
     await applications.upsertMentorAssignment(application.id, mentor.id, req.user.id)
     return res.json(await composeDetail(updated))
+  } catch (error) {
+    return next(error)
+  }
+}
+
+export const listUsers = async (req, res, next) => {
+  try {
+    requireRoles(req, ['admin', 'pembimbing_lapangan'])
+    const role = String(req.query.role || '').trim().toLowerCase()
+    if (role === 'mentor') {
+      return res.json({ data: await users.listMentors() })
+    }
+    throw createHttpError(400, 'Filter role tidak valid.')
+  } catch (error) {
+    return next(error)
+  }
+}
+
+export const listAdminMentors = async (req, res, next) => {
+  try {
+    requireRoles(req, ['admin', 'pembimbing_lapangan'])
+    return res.json({ data: await users.listMentors() })
+  } catch (error) {
+    return next(error)
+  }
+}
+
+export const createAdminMentor = async (req, res, next) => {
+  try {
+    requireRoles(req, ['admin'])
+    const name = String(req.body.name || '').trim()
+    const email = String(req.body.email || '').trim().toLowerCase()
+    const password = String(req.body.password || '')
+    if (!name || !email || !password) throw createHttpError(400, 'Nama, email, dan password mentor wajib diisi.')
+    if (!validateEmail(email)) throw createHttpError(400, 'Format email mentor tidak valid.')
+    if (password.length < 6) throw createHttpError(400, 'Password mentor minimal 6 karakter.')
+
+    const existing = await users.findUserByEmail(email)
+    if (existing) throw createHttpError(409, 'Email mentor sudah terdaftar.')
+
+    const passwordHash = crypto.createHash('sha256').update(password).digest('hex')
+    const mentor = await users.createUser({ name, email, passwordHash, role: 'mentor' })
+    return res.status(201).json({ message: 'Mentor berhasil ditambahkan.', data: mentor })
+  } catch (error) {
+    return next(error)
+  }
+}
+
+export const updateAdminMentor = async (req, res, next) => {
+  try {
+    requireRoles(req, ['admin'])
+    const mentorId = Number(req.params.id)
+    if (!Number.isInteger(mentorId) || mentorId < 1) throw createHttpError(400, 'ID mentor tidak valid.')
+    const name = String(req.body.name || '').trim()
+    const email = String(req.body.email || '').trim().toLowerCase()
+    if (!name || !email) throw createHttpError(400, 'Nama dan email mentor wajib diisi.')
+    if (!validateEmail(email)) throw createHttpError(400, 'Format email mentor tidak valid.')
+
+    const mentor = await users.findUserById(mentorId)
+    if (!mentor || mentor.role !== 'mentor') throw createHttpError(404, 'Mentor tidak ditemukan.')
+    const emailOwner = await users.findUserByEmail(email)
+    if (emailOwner && emailOwner.id !== mentorId) throw createHttpError(409, 'Email mentor sudah digunakan user lain.')
+
+    const updated = await users.updateMentor(mentorId, { name, email })
+    return res.json({ message: 'Mentor berhasil diperbarui.', data: updated })
+  } catch (error) {
+    return next(error)
+  }
+}
+
+export const deleteAdminMentor = async (req, res, next) => {
+  try {
+    requireRoles(req, ['admin'])
+    const mentorId = Number(req.params.id)
+    if (!Number.isInteger(mentorId) || mentorId < 1) throw createHttpError(400, 'ID mentor tidak valid.')
+
+    const deleted = await users.deleteMentor(mentorId)
+    if (!deleted) throw createHttpError(404, 'Mentor tidak ditemukan.')
+    return res.status(204).send()
   } catch (error) {
     return next(error)
   }
