@@ -223,7 +223,9 @@ export const createStudentApplicationDocument = async (req, res, next) => {
     if (!requiredDocumentTypes.includes(jenisDokumen)) throw createHttpError(400, 'Jenis dokumen tidak valid.')
     if (!fileName) throw createHttpError(400, 'Nama file dokumen wajib diisi.')
     if (fileSize > 5 * 1024 * 1024) throw createHttpError(400, 'Ukuran file maksimal 5MB.')
-    if (!['application/pdf', 'image/jpeg', 'image/png'].includes(mimeType)) throw createHttpError(400, 'Tipe file harus PDF, JPG, atau PNG.')
+    if (!['application/pdf', 'image/jpeg', 'image/png', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(mimeType)) {
+      throw createHttpError(400, 'Tipe file harus PDF, JPG, PNG, atau DOCX.')
+    }
 
     const fileUrl = await saveUploadedFile(application.id, jenisDokumen, fileName, req.body.fileContentBase64 || '')
     const document = await applications.upsertDocument({
