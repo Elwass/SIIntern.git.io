@@ -333,7 +333,10 @@ export const getAdminApplicationDetail = async (req, res, next) => {
 export const updateAdminApplicationStatus = async (req, res, next) => {
   try {
     requireRoles(req, ['admin', 'pembimbing_lapangan'])
-    const application = await applications.getApplicationById(req.params.id)
+    const applicationId = Number(req.params.id)
+    if (!Number.isInteger(applicationId) || applicationId < 1) throw createHttpError(400, 'ID pendaftaran tidak valid.')
+
+    const application = await applications.getApplicationById(applicationId)
     if (!application) throw createHttpError(404, 'Pendaftaran magang tidak ditemukan.')
 
     const nextStatus = statusAliases[req.body.status] || req.body.status
@@ -348,6 +351,11 @@ export const updateAdminApplicationStatus = async (req, res, next) => {
     await applications.createNotification(updated.userId, 'Status pendaftaran berubah', `Status pendaftaran magang Anda menjadi ${nextStatus}.`)
     return res.json(await composeDetail(updated))
   } catch (error) {
+    console.error('[ADMIN_APPLICATION_STATUS_UPDATE_ERROR]', {
+      applicationId: req.params.id,
+      requestedStatus: req.body?.status,
+      message: error?.message,
+    })
     return next(error)
   }
 }
@@ -397,6 +405,12 @@ export const updateAdminDocumentStatus = async (req, res, next) => {
     await applications.createNotification(application.userId, 'Status dokumen berubah', `Status dokumen ${document.jenisDokumen} menjadi ${document.status}.`)
     return res.json(document)
   } catch (error) {
+    console.error('[ADMIN_DOCUMENT_STATUS_UPDATE_ERROR]', {
+      applicationId: req.params.id ?? req.params.applicationId ?? req.params.application_id,
+      documentId: req.params.documentId ?? req.params.docId ?? req.params.document_id,
+      requestedStatus: req.body?.status,
+      message: error?.message,
+    })
     return next(error)
   }
 }
