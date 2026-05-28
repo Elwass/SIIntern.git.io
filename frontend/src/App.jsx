@@ -9,6 +9,7 @@ import AdminDashboard from './pages/AdminDashboard'
 import StudentDashboard from './pages/StudentDashboard'
 import StudentApplicationPage from './pages/StudentApplicationPage'
 import AdminApplicationsPage from './pages/AdminApplicationsPage'
+import AdminMentorsPage from './pages/AdminMentorsPage'
 import MentorApplicationsPage from './pages/MentorApplicationsPage'
 import StudentSectionPage from './pages/StudentSectionPage'
 import ReportPage from './pages/ReportPage'
@@ -27,6 +28,7 @@ export default function App() {
         <Route element={<ProtectedRoute allowedRoles={["admin", "pembimbing_lapangan"]} />}>
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/applications" element={<AdminApplicationsPage />} />
+          <Route path="/admin/mentors" element={<AdminMentorsPage />} />
           <Route path="/report" element={<ReportPage />} />
         </Route>
 
