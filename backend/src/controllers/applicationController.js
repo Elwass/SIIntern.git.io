@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { applicationStatuses, documentStatuses, internshipFields, requiredDocumentTypes } from '../constants/applicationConstants.js'
 import * as defaultApplications from '../repositories/applicationRepository.js'
 import * as defaultUsers from '../repositories/userRepository.js'
-import { createAuditLog } from '../repositories/workflowRepository.js'
+import * as defaultAudit from '../repositories/workflowRepository.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const uploadRoot = join(__dirname, '..', 'uploads')
@@ -23,10 +23,12 @@ const requiredApplicationFields = ['bidangMagang', 'periodeMulai', 'periodeSeles
 
 let applications = defaultApplications
 let users = defaultUsers
+let audit = defaultAudit
 
 export function setApplicationRepositoriesForTests(repositories = {}) {
   applications = repositories.applications || defaultApplications
   users = repositories.users || defaultUsers
+  audit = repositories.audit || (repositories.applications || repositories.users ? { createAuditLog: async () => {} } : defaultAudit)
 }
 
 function createHttpError(statusCode, message, details, outputKey = 'message') {
@@ -342,16 +344,18 @@ export const updateAdminApplicationStatus = async (req, res, next) => {
     const application = await applications.getApplicationById(applicationId)
     if (!application) throw createHttpError(404, 'Pendaftaran magang tidak ditemukan.')
 
-    const nextStatus = statusAliases[req.body.status] || req.body.status
+    const body = req.body || {}
+    const nextStatus = statusAliases[body.status] || body.status
     if (!nextStatus) throw createHttpError(400, 'Status pendaftaran wajib diisi.')
     if (!applicationStatuses.includes(nextStatus)) throw createHttpError(400, 'Status pendaftaran tidak valid.')
-    if (!(allowedAdminTransitions[application.status] || []).includes(nextStatus)) {
+    if (nextStatus !== application.status && !(allowedAdminTransitions[application.status] || []).includes(nextStatus)) {
       throw createHttpError(400, `Status ${application.status} tidak dapat diubah menjadi ${nextStatus}.`)
     }
 
-    const adminNotes = (req.body.adminNotes ?? req.body.admin_notes ?? req.body.catatanAdmin ?? '').trim()
+    const adminNotes = String(body.adminNotes ?? body.admin_notes ?? body.catatanAdmin ?? '').trim()
     const updated = await applications.setApplicationStatus(application.id, nextStatus, adminNotes)
     await applications.createNotification(updated.userId, 'Status pendaftaran berubah', `Status pendaftaran magang Anda menjadi ${nextStatus}.`)
+    await audit.createAuditLog({ actorId: req.user.id, action: 'application.status_updated', entityType: 'application', entityId: updated.id, applicationId: updated.id, before: application, after: updated })
     return res.json(await composeDetail(updated))
   } catch (error) {
     console.error('[ADMIN_APPLICATION_STATUS_UPDATE_ERROR]', {
@@ -393,20 +397,29 @@ export const rejectAdminApplication = async (req, res, next) => {
 export const updateAdminDocumentStatus = async (req, res, next) => {
   try {
     requireRoles(req, ['admin', 'pembimbing_lapangan'])
-    if (!['verified', 'needs_revision', 'rejected'].includes(req.body.status)) throw createHttpError(400, 'Status dokumen tidak valid.')
+    const body = req.body || {}
+    const nextDocumentStatus = String(body.status || '').trim()
+    if (!documentStatuses.includes(nextDocumentStatus)) throw createHttpError(400, 'Status dokumen tidak valid.')
 
     const applicationId = Number(req.params.id ?? req.params.applicationId ?? req.params.application_id)
     const documentId = Number(req.params.documentId ?? req.params.docId ?? req.params.document_id)
     if (!Number.isInteger(applicationId) || applicationId < 1) throw createHttpError(400, 'application_id tidak valid.')
     if (!Number.isInteger(documentId) || documentId < 1) throw createHttpError(400, 'document_id tidak valid.')
 
-    const documentNotes = (req.body.adminNotes ?? req.body.admin_notes ?? req.body.catatanAdmin ?? '').trim()
-    const document = await applications.updateDocumentStatus(applicationId, documentId, req.body.status, documentNotes)
-    if (!document) throw createHttpError(404, 'Dokumen tidak ditemukan.')
-
     const application = await applications.getApplicationById(applicationId)
+    if (!application) throw createHttpError(404, 'Pendaftaran magang tidak ditemukan.')
+
+    const beforeDocument = applications.getDocumentByApplicationId
+      ? await applications.getDocumentByApplicationId(applicationId, documentId)
+      : (await applications.listDocuments(applicationId)).find((item) => Number(item.id) === documentId)
+    if (!beforeDocument) throw createHttpError(404, 'Dokumen tidak ditemukan untuk application_id ini.')
+
+    const documentNotes = String(body.adminNotes ?? body.admin_notes ?? body.catatanAdmin ?? '').trim()
+    const document = await applications.updateDocumentStatus(applicationId, documentId, nextDocumentStatus, documentNotes)
+    if (!document) throw createHttpError(404, 'Dokumen tidak ditemukan untuk application_id ini.')
+
     await applications.createNotification(application.userId, 'Status dokumen berubah', `Status dokumen ${document.jenisDokumen} menjadi ${document.status}.`)
-    await createAuditLog({ actorId: req.user.id, action: 'document.status_updated', entityType: 'document', entityId: document.id, applicationId, before: beforeDocument, after: document })
+    await audit.createAuditLog({ actorId: req.user.id, action: 'document.status_updated', entityType: 'document', entityId: document.id, applicationId, before: beforeDocument, after: document })
     return res.json(document)
   } catch (error) {
     console.error('[ADMIN_DOCUMENT_STATUS_UPDATE_ERROR]', {
@@ -441,7 +454,7 @@ export const assignApplicationMentor = async (req, res, next) => {
     await applications.upsertMentorAssignment(application.id, mentor.id, req.user.id)
     await applications.createNotification(mentor.id, 'Mahasiswa bimbingan baru', `Anda ditetapkan sebagai mentor untuk pendaftaran #${application.id}.`)
     await applications.createNotification(application.userId, 'Mentor ditetapkan', `Mentor ${mentor.name} telah ditetapkan untuk magang Anda.`)
-    await createAuditLog({ actorId: req.user.id, action: 'mentor.assigned', entityType: 'application', entityId: application.id, applicationId: application.id, before: application, after: updated })
+    await audit.createAuditLog({ actorId: req.user.id, action: 'mentor.assigned', entityType: 'application', entityId: application.id, applicationId: application.id, before: application, after: updated })
     return res.json(await composeDetail(updated))
   } catch (error) {
     return next(error)

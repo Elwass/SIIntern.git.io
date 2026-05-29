@@ -9,7 +9,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const uploadRoot = join(__dirname, '..', 'uploads')
 const logbookStatuses = ['pending', 'approved', 'rejected']
 const attendanceStatuses = ['present', 'late', 'sick', 'permit', 'absent']
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function httpError(statusCode, message) { const error = new Error(message); error.statusCode = statusCode; return error }
 function id(value, label = 'ID') { const n = Number(value); if (!Number.isInteger(n) || n < 1) throw httpError(400, `${label} tidak valid.`); return n }
@@ -61,12 +60,13 @@ export async function createStudentLogbook(req, res) {
   const applicationId = id(req.params.applicationId || req.params.id, 'ID pendaftaran')
   const app = await getApplicationForStudent(req, applicationId)
   if (app.status !== 'accepted') throw httpError(400, 'Logbook dapat diisi setelah pendaftaran diterima.')
-  const activityDate = String(req.body.activityDate || req.body.activity_date || today())
-  const title = String(req.body.title || '').trim()
-  const description = String(req.body.description || '').trim()
+  const body = req.body || {}
+  const activityDate = String(body.activityDate || body.activity_date || today())
+  const title = String(body.title || '').trim()
+  const description = String(body.description || '').trim()
   if (!isDate(activityDate) || !title || !description) throw httpError(400, 'Tanggal, judul, dan deskripsi logbook wajib valid.')
-  const file = await saveOptionalFile(applicationId, 'logbook', req.body.file || req.body.supportingFile || {})
-  const { before, entry } = await workflow.upsertLogbook({ id: req.params.logbookId ? id(req.params.logbookId, 'ID logbook') : null, applicationId, userId: req.user.id, mentorId: app.mentor_id, activityDate, title, description, output: String(req.body.output || '').trim(), supportingFileName: file.fileName, supportingFilePath: file.filePath, supportingFileUrl: file.fileUrl })
+  const file = await saveOptionalFile(applicationId, 'logbook', body.file || body.supportingFile || {})
+  const { before, entry } = await workflow.upsertLogbook({ id: req.params.logbookId ? id(req.params.logbookId, 'ID logbook') : null, applicationId, userId: req.user.id, mentorId: app.mentor_id, activityDate, title, description, output: String(body.output || '').trim(), supportingFileName: file.fileName, supportingFilePath: file.filePath, supportingFileUrl: file.fileUrl })
   await workflow.createAuditLog({ actorId: req.user.id, action: before ? 'logbook.updated' : 'logbook.created', entityType: 'logbook', entityId: entry.id, applicationId, before, after: entry })
   await notifyApplicationUsers(app, 'Logbook menunggu verifikasi', `${app.nama_lengkap || 'Mahasiswa'} mengirim logbook ${activityDate}.`, 'logbook', entry.id, req.user.id)
   res.status(before ? 200 : 201).json({ data: entry })
@@ -100,9 +100,10 @@ export async function reviewMentorLogbook(req, res) {
   requireMentor(req)
   const applicationId = id(req.params.applicationId, 'ID pendaftaran')
   const app = await getApplicationForMentor(req, applicationId)
-  const status = String(req.body.status || '').trim()
+  const body = req.body || {}
+  const status = String(body.status || '').trim()
   if (!logbookStatuses.includes(status) || status === 'pending') throw httpError(400, 'Status logbook harus approved atau rejected.')
-  const { before, entry } = await workflow.reviewLogbook(applicationId, id(req.params.logbookId, 'ID logbook'), { status, feedback: String(req.body.feedback || '').trim(), reviewerId: req.user.id })
+  const { before, entry } = await workflow.reviewLogbook(applicationId, id(req.params.logbookId, 'ID logbook'), { status, feedback: String(body.feedback || '').trim(), reviewerId: req.user.id })
   if (!entry) throw httpError(404, 'Logbook tidak ditemukan.')
   await workflow.createAuditLog({ actorId: req.user.id, action: 'logbook.reviewed', entityType: 'logbook', entityId: entry.id, applicationId, before, after: entry })
   await workflow.createNotification(app.user_id, 'Status logbook diperbarui', `Logbook ${entry.activityDate} menjadi ${entry.status}.`, 'logbook', entry.id)
@@ -116,10 +117,11 @@ async function studentAttendance(req, res, mode) {
   const applicationId = id(req.params.applicationId || req.params.id, 'ID pendaftaran')
   const app = await getApplicationForStudent(req, applicationId)
   if (app.status !== 'accepted') throw httpError(400, 'Absensi dapat dilakukan setelah pendaftaran diterima.')
-  const attendanceDate = String(req.body.attendanceDate || req.body.attendance_date || today())
+  const body = req.body || {}
+  const attendanceDate = String(body.attendanceDate || body.attendance_date || today())
   if (!isDate(attendanceDate)) throw httpError(400, 'Tanggal absensi tidak valid.')
-  const file = await saveOptionalFile(applicationId, 'attendance', req.body.proof || req.body.file || {})
-  const payload = { applicationId, userId: req.user.id, mentorId: app.mentor_id, attendanceDate, status: String(req.body.status || 'present'), proofType: String(req.body.proofType || '').trim(), proofFileName: file.fileName, proofFilePath: file.filePath, proofFileUrl: file.fileUrl, notes: String(req.body.notes || '').trim(), createdBy: req.user.id }
+  const file = await saveOptionalFile(applicationId, 'attendance', body.proof || body.file || {})
+  const payload = { applicationId, userId: req.user.id, mentorId: app.mentor_id, attendanceDate, status: String(body.status || 'present'), proofType: String(body.proofType || '').trim(), proofFileName: file.fileName, proofFilePath: file.filePath, proofFileUrl: file.fileUrl, notes: String(body.notes || '').trim(), createdBy: req.user.id }
   if (!attendanceStatuses.includes(payload.status)) throw httpError(400, 'Status absensi tidak valid.')
   if (mode === 'checkin') payload.checkInAt = nowMysql(); else payload.checkOutAt = nowMysql()
   const { before, attendance } = await workflow.upsertAttendance(payload)
@@ -138,13 +140,14 @@ export async function listAttendance(req, res) {
 
 export async function upsertStaffAttendance(req, res) {
   if (!isAdmin(req) && !isMentor(req)) throw httpError(403, 'Akses ditolak.')
-  const applicationId = id(req.params.applicationId || req.body.applicationId, 'ID pendaftaran')
+  const body = req.body || {}
+  const applicationId = id(req.params.applicationId || body.applicationId, 'ID pendaftaran')
   const app = isAdmin(req) ? await workflow.getApplicationAccess(applicationId) : await getApplicationForMentor(req, applicationId)
   if (!app) throw httpError(404, 'Pendaftaran magang tidak ditemukan.')
-  const attendanceDate = String(req.body.attendanceDate || today())
-  const status = String(req.body.status || 'present')
+  const attendanceDate = String(body.attendanceDate || today())
+  const status = String(body.status || 'present')
   if (!isDate(attendanceDate) || !attendanceStatuses.includes(status)) throw httpError(400, 'Tanggal atau status absensi tidak valid.')
-  const { before, attendance } = await workflow.upsertAttendance({ applicationId, userId: app.user_id, mentorId: app.mentor_id, attendanceDate, checkInAt: req.body.checkInAt || null, checkOutAt: req.body.checkOutAt || null, status, notes: String(req.body.notes || '').trim(), correctedBy: req.user.id, createdBy: req.user.id })
+  const { before, attendance } = await workflow.upsertAttendance({ applicationId, userId: app.user_id, mentorId: app.mentor_id, attendanceDate, checkInAt: body.checkInAt || null, checkOutAt: body.checkOutAt || null, status, notes: String(body.notes || '').trim(), correctedBy: req.user.id, createdBy: req.user.id })
   await workflow.createAuditLog({ actorId: req.user.id, action: isAdmin(req) ? 'attendance.corrected' : 'attendance.mentor_input', entityType: 'attendance', entityId: attendance.id, applicationId, before, after: attendance })
   await workflow.createNotification(app.user_id, 'Absensi diperbarui', `Absensi ${attendanceDate} diperbarui oleh ${isAdmin(req) ? 'admin' : 'mentor'}.`, 'attendance', attendance.id)
   res.json({ data: attendance })
@@ -154,11 +157,12 @@ export async function upsertMentorEvaluation(req, res) {
   requireMentor(req)
   const applicationId = id(req.params.applicationId, 'ID pendaftaran')
   const app = await getApplicationForMentor(req, applicationId)
-  const scores = ['performanceScore', 'softSkillsScore', 'logbookScore'].map((key) => Number(req.body[key]))
+  const body = req.body || {}
+  const scores = ['performanceScore', 'softSkillsScore', 'logbookScore'].map((key) => Number(body[key]))
   if (scores.some((score) => !Number.isFinite(score) || score < 0 || score > 100)) throw httpError(400, 'Semua nilai harus 0 sampai 100.')
   const finalScore = Math.round(((scores[0] * 0.4) + (scores[1] * 0.3) + (scores[2] * 0.3)) * 100) / 100
   const grade = finalScore >= 85 ? 'A' : finalScore >= 75 ? 'B' : finalScore >= 65 ? 'C' : 'D'
-  const evaluation = await workflow.upsertEvaluation({ applicationId, userId: app.user_id, mentorId: req.user.id, performanceScore: scores[0], softSkillsScore: scores[1], logbookScore: scores[2], finalScore, grade, feedback: String(req.body.feedback || '').trim() })
+  const evaluation = await workflow.upsertEvaluation({ applicationId, userId: app.user_id, mentorId: req.user.id, performanceScore: scores[0], softSkillsScore: scores[1], logbookScore: scores[2], finalScore, grade, feedback: String(body.feedback || '').trim() })
   await workflow.createAuditLog({ actorId: req.user.id, action: 'evaluation.upserted', entityType: 'evaluation', entityId: evaluation.id, applicationId, after: evaluation })
   await workflow.createNotification(app.user_id, 'Penilaian akhir tersedia', `Nilai akhir magang Anda: ${finalScore} (${grade}).`, 'evaluation', evaluation.id)
   res.json({ data: evaluation })
@@ -176,11 +180,12 @@ export async function adminDashboard(req, res) { requireAdmin(req); res.json({ d
 
 export async function adminSendNotification(req, res) {
   requireAdmin(req)
-  const userId = id(req.body.userId, 'ID user')
-  const title = String(req.body.title || '').trim()
-  const message = String(req.body.message || '').trim()
+  const body = req.body || {}
+  const userId = id(body.userId, 'ID user')
+  const title = String(body.title || '').trim()
+  const message = String(body.message || '').trim()
   if (!title || !message) throw httpError(400, 'Judul dan pesan notifikasi wajib diisi.')
-  await workflow.createNotification(userId, title, message, req.body.relatedType || null, req.body.relatedId || null)
+  await workflow.createNotification(userId, title, message, body.relatedType || null, body.relatedId || null)
   await workflow.createAuditLog({ actorId: req.user.id, action: 'notification.sent', entityType: 'notification', entityId: userId, after: { title, message } })
   res.status(201).json({ message: 'Notifikasi berhasil dikirim.' })
 }
@@ -190,11 +195,16 @@ export async function mentorReviewDocument(req, res) {
   const applicationId = id(req.params.applicationId, 'ID pendaftaran')
   const app = await getApplicationForMentor(req, applicationId)
   const documentId = id(req.params.documentId, 'ID dokumen')
-  const status = String(req.body.status || '').trim()
+  const body = req.body || {}
+  const status = String(body.status || '').trim()
   if (!documentStatuses.includes(status)) throw httpError(400, 'Status dokumen tidak valid.')
-  const document = await applications.updateDocumentStatus(applicationId, documentId, status, String(req.body.notes || req.body.catatanAdmin || '').trim())
-  if (!document) throw httpError(404, 'Dokumen tidak ditemukan.')
-  await workflow.createAuditLog({ actorId: req.user.id, action: 'document.mentor_reviewed', entityType: 'document', entityId: document.id, applicationId, after: document })
+  const beforeDocument = applications.getDocumentByApplicationId
+    ? await applications.getDocumentByApplicationId(applicationId, documentId)
+    : (await applications.listDocuments(applicationId)).find((item) => Number(item.id) === documentId)
+  if (!beforeDocument) throw httpError(404, 'Dokumen tidak ditemukan untuk application_id ini.')
+  const document = await applications.updateDocumentStatus(applicationId, documentId, status, String(body.notes || body.catatanAdmin || '').trim())
+  if (!document) throw httpError(404, 'Dokumen tidak ditemukan untuk application_id ini.')
+  await workflow.createAuditLog({ actorId: req.user.id, action: 'document.mentor_reviewed', entityType: 'document', entityId: document.id, applicationId, before: beforeDocument, after: document })
   await workflow.createNotification(app.user_id, 'Dokumen ditinjau mentor', `Dokumen ${document.jenisDokumen} menjadi ${document.status}.`, 'document', document.id)
   res.json({ data: document })
 }
@@ -203,9 +213,12 @@ export async function exportReport(req, res) {
   const type = String(req.params.type || req.query.type || 'attendance')
   const format = String(req.query.format || 'json')
   let rows = []
-  if (type === 'attendance') rows = await workflow.listAttendance({ applicationId: req.query.applicationId || null, userId: req.user.role === 'student' ? req.user.id : null, mentorId: req.user.role === 'mentor' ? req.user.id : null, from: req.query.from || '', to: req.query.to || '' })
-  else if (type === 'logbook') rows = await workflow.listLogbooks({ applicationId: req.query.applicationId || null, userId: req.user.role === 'student' ? req.user.id : null, mentorId: req.user.role === 'mentor' ? req.user.id : null })
-  else if (type === 'documents') rows = req.query.applicationId ? await applications.listDocuments(req.query.applicationId) : []
+  const applicationId = req.query.applicationId ? id(req.query.applicationId, 'ID pendaftaran') : null
+  if (applicationId && req.user.role === 'student') await getApplicationForStudent(req, applicationId)
+  if (applicationId && req.user.role === 'mentor') await getApplicationForMentor(req, applicationId)
+  if (type === 'attendance') rows = await workflow.listAttendance({ applicationId, userId: req.user.role === 'student' ? req.user.id : null, mentorId: req.user.role === 'mentor' ? req.user.id : null, from: req.query.from || '', to: req.query.to || '' })
+  else if (type === 'logbook') rows = await workflow.listLogbooks({ applicationId, userId: req.user.role === 'student' ? req.user.id : null, mentorId: req.user.role === 'mentor' ? req.user.id : null })
+  else if (type === 'documents') rows = applicationId ? await applications.listDocuments(applicationId) : []
   else throw httpError(400, 'Jenis laporan tidak valid.')
   if (format === 'csv' || format === 'excel' || format === 'pdf') {
     const keys = Object.keys(rows[0] || { empty: '' })

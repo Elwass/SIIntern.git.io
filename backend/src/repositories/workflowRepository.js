@@ -139,8 +139,12 @@ export async function upsertAttendance(payload) {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
        mentor_id = VALUES(mentor_id), check_in_at = COALESCE(VALUES(check_in_at), check_in_at), check_out_at = COALESCE(VALUES(check_out_at), check_out_at),
-       status = VALUES(status), proof_type = VALUES(proof_type), proof_file_name = VALUES(proof_file_name), proof_file_path = VALUES(proof_file_path), proof_file_url = VALUES(proof_file_url),
-       notes = VALUES(notes), corrected_by = VALUES(corrected_by), updated_at = CURRENT_TIMESTAMP`,
+       status = VALUES(status),
+       proof_type = COALESCE(NULLIF(VALUES(proof_type), ''), proof_type),
+       proof_file_name = COALESCE(NULLIF(VALUES(proof_file_name), ''), proof_file_name),
+       proof_file_path = COALESCE(NULLIF(VALUES(proof_file_path), ''), proof_file_path),
+       proof_file_url = COALESCE(NULLIF(VALUES(proof_file_url), ''), proof_file_url),
+       notes = COALESCE(NULLIF(VALUES(notes), ''), notes), corrected_by = VALUES(corrected_by), updated_at = CURRENT_TIMESTAMP`,
     [payload.applicationId, payload.userId, payload.mentorId || null, payload.attendanceDate, payload.checkInAt || null, payload.checkOutAt || null, payload.status, payload.proofType || '', payload.proofFileName || '', payload.proofFilePath || '', payload.proofFileUrl || '', payload.notes || '', payload.correctedBy || null, payload.createdBy || null],
   )
   const [rows] = await pool.query('SELECT * FROM attendance_records WHERE application_id = ? AND attendance_date = ? LIMIT 1', [payload.applicationId, payload.attendanceDate])
