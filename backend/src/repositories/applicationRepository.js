@@ -105,7 +105,7 @@ export async function upsertStudentProfile(userId, payload) {
 export async function getCurrentApplication(userId) {
   const [rows] = await pool.query(
     `SELECT * FROM internship_applications
-     WHERE user_id = ? AND status IN ('draft','pending','verified','accepted','rejected')
+     WHERE user_id = ? AND status IN ('draft','pending','verified','accepted','rejected','needs_revision')
      ORDER BY created_at DESC LIMIT 1`,
     [userId],
   )
@@ -151,9 +151,9 @@ export async function setApplicationStatus(id, status, catatanAdmin = '') {
   const timestampSql = timestampColumn ? `, ${timestampColumn} = CURRENT_TIMESTAMP` : ''
   await pool.query(
     `UPDATE internship_applications
-     SET status = ?, catatan_admin = ?, updated_at = CURRENT_TIMESTAMP${timestampSql}
+     SET status = ?, catatan_admin = ?, admin_notes = ?, updated_at = CURRENT_TIMESTAMP${timestampSql}
      WHERE id = ?`,
-    [status, catatanAdmin, id],
+    [status, catatanAdmin, catatanAdmin, id],
   )
   return getApplicationById(id)
 }
@@ -229,10 +229,16 @@ export async function deleteDocument(applicationId, documentId) {
   return toDocument(rows[0])
 }
 
+
+export async function getDocumentByApplicationId(applicationId, documentId) {
+  const [rows] = await pool.query('SELECT * FROM application_documents WHERE application_id = ? AND id = ? LIMIT 1', [applicationId, documentId])
+  return toDocument(rows[0])
+}
+
 export async function updateDocumentStatus(applicationId, documentId, status, catatanAdmin = '') {
   const [result] = await pool.query(
-    `UPDATE application_documents SET status = ?, catatan_admin = ?, updated_at = CURRENT_TIMESTAMP WHERE application_id = ? AND id = ?`,
-    [status, catatanAdmin, applicationId, documentId],
+    `UPDATE application_documents SET status = ?, catatan_admin = ?, admin_notes = ?, updated_at = CURRENT_TIMESTAMP WHERE application_id = ? AND id = ?`,
+    [status, catatanAdmin, catatanAdmin, applicationId, documentId],
   )
   if (!result?.affectedRows) {
     return null
@@ -248,9 +254,9 @@ export async function listAdminApplications({ status = '', bidangMagang = '', se
   if (status) { where.push('a.status = ?'); params.push(status) }
   if (bidangMagang) { where.push('a.bidang_magang = ?'); params.push(bidangMagang) }
   if (search) {
-    where.push('(LOWER(p.nama_lengkap) LIKE ? OR LOWER(p.nim) LIKE ? OR LOWER(u.email) LIKE ?)')
+    where.push('(LOWER(p.nama_lengkap) LIKE ? OR LOWER(p.nim) LIKE ? OR LOWER(u.email) LIKE ? OR LOWER(a.bidang_magang) LIKE ?)')
     const term = `%${search.toLowerCase()}%`
-    params.push(term, term, term)
+    params.push(term, term, term, term)
   }
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
   const [countRows] = await pool.query(
