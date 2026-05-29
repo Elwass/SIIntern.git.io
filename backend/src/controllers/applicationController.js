@@ -5,16 +5,19 @@ import { fileURLToPath } from 'node:url'
 import { applicationStatuses, documentStatuses, internshipFields, requiredDocumentTypes } from '../constants/applicationConstants.js'
 import * as defaultApplications from '../repositories/applicationRepository.js'
 import * as defaultUsers from '../repositories/userRepository.js'
+import { createAuditLog } from '../repositories/workflowRepository.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const uploadRoot = join(__dirname, '..', 'uploads')
 const editableStatuses = ['draft']
 const allowedAdminTransitions = {
   draft: ['pending'],
-  pending: ['verified', 'rejected'],
-  verified: ['accepted', 'rejected'],
+  pending: ['verified', 'needs_revision', 'rejected'],
+  needs_revision: ['pending', 'verified', 'rejected'],
+  verified: ['accepted', 'needs_revision', 'rejected'],
+  accepted: ['needs_revision', 'rejected'],
 }
-const statusAliases = { submitted: 'pending', needs_revision: 'rejected', approved: 'accepted' }
+const statusAliases = { submitted: 'pending', revision: 'needs_revision', approved: 'accepted' }
 const requiredProfileFields = ['namaLengkap', 'nim', 'kampus', 'programStudi', 'semester', 'noHp', 'alamat']
 const requiredApplicationFields = ['bidangMagang', 'periodeMulai', 'periodeSelesai', 'motivasi']
 
@@ -403,6 +406,7 @@ export const updateAdminDocumentStatus = async (req, res, next) => {
 
     const application = await applications.getApplicationById(applicationId)
     await applications.createNotification(application.userId, 'Status dokumen berubah', `Status dokumen ${document.jenisDokumen} menjadi ${document.status}.`)
+    await createAuditLog({ actorId: req.user.id, action: 'document.status_updated', entityType: 'document', entityId: document.id, applicationId, before: beforeDocument, after: document })
     return res.json(document)
   } catch (error) {
     console.error('[ADMIN_DOCUMENT_STATUS_UPDATE_ERROR]', {
@@ -435,6 +439,9 @@ export const assignApplicationMentor = async (req, res, next) => {
 
     const updated = await applications.setApplicationMentor(application.id, mentor.id)
     await applications.upsertMentorAssignment(application.id, mentor.id, req.user.id)
+    await applications.createNotification(mentor.id, 'Mahasiswa bimbingan baru', `Anda ditetapkan sebagai mentor untuk pendaftaran #${application.id}.`)
+    await applications.createNotification(application.userId, 'Mentor ditetapkan', `Mentor ${mentor.name} telah ditetapkan untuk magang Anda.`)
+    await createAuditLog({ actorId: req.user.id, action: 'mentor.assigned', entityType: 'application', entityId: application.id, applicationId: application.id, before: application, after: updated })
     return res.json(await composeDetail(updated))
   } catch (error) {
     return next(error)

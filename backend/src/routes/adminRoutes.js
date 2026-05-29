@@ -14,6 +14,7 @@ import {
   updateAdminMentor,
   verifyAdminApplication,
 } from '../controllers/applicationController.js'
+import { adminDashboard, adminSendNotification, exportReport, listAttendance, listMyNotifications, markMyNotificationRead, upsertStaffAttendance } from '../controllers/workflowController.js'
 import { requireCompleteApplicationDocuments } from '../middleware/applicationValidation.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
 import { authMiddleware } from '../middleware/auth.js'
@@ -24,6 +25,14 @@ const reviewRoles = ['admin', 'pembimbing_lapangan']
 const verificationRoles = ['admin']
 
 router.use(authMiddleware)
+router.get('/dashboard', authorizeRoles(reviewRoles), asyncHandler(adminDashboard))
+router.get('/notifications', authorizeRoles(reviewRoles), asyncHandler(listMyNotifications))
+router.patch('/notifications/:id/read', authorizeRoles(reviewRoles), asyncHandler(markMyNotificationRead))
+router.post('/notifications', authorizeRoles(verificationRoles), asyncHandler(adminSendNotification))
+router.get('/reports/:type', authorizeRoles(reviewRoles), asyncHandler(exportReport))
+router.get('/attendance', authorizeRoles(reviewRoles), asyncHandler(listAttendance))
+router.patch('/attendance/:applicationId', authorizeRoles(verificationRoles), asyncHandler(upsertStaffAttendance))
+router.post('/attendance/:applicationId', authorizeRoles(verificationRoles), asyncHandler(upsertStaffAttendance))
 router.get('/users', authorizeRoles(reviewRoles), asyncHandler(listUsers))
 router.get('/mentors', authorizeRoles(reviewRoles), asyncHandler(listAdminMentors))
 router.post('/mentors', authorizeRoles(verificationRoles), asyncHandler(createAdminMentor))

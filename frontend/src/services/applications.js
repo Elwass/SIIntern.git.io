@@ -14,6 +14,7 @@ export const applicationStatusLabels = {
   verified: 'Verifikasi Admin',
   accepted: 'Diterima',
   rejected: 'Ditolak',
+  needs_revision: 'Perlu Revisi',
 }
 
 
@@ -78,3 +79,37 @@ export function deleteMentor(id) { return apiRequest(`/api/admin/mentors/${id}`,
 export function assignApplicationMentor(id, mentorId) { return apiRequest(`/api/admin/applications/${id}/assign-mentor`, { method: 'POST', body: JSON.stringify({ mentorId }) }) }
 export function listMentorApplications() { return apiRequest('/api/mentor/applications') }
 export function getMentorApplication(id) { return apiRequest(`/api/mentor/applications/${id}`) }
+
+export const attendanceStatusLabels = { present: 'Hadir', late: 'Terlambat', sick: 'Sakit', permit: 'Izin', absent: 'Alpa' }
+export const logbookStatusLabels = { pending: 'Menunggu', approved: 'Disetujui', rejected: 'Ditolak' }
+
+export function listStudentNotifications() { return apiRequest('/api/student/notifications') }
+export function markStudentNotificationRead(id) { return apiRequest(`/api/student/notifications/${id}/read`, { method: 'PATCH' }) }
+export function listStudentLogbooks(applicationId) { return apiRequest(`/api/student/applications/${applicationId}/logbooks`) }
+export function createStudentLogbook(applicationId, payload) { return apiRequest(`/api/student/applications/${applicationId}/logbooks`, { method: 'POST', body: JSON.stringify(payload) }) }
+export function deleteStudentLogbook(applicationId, logbookId) { return apiRequest(`/api/student/applications/${applicationId}/logbooks/${logbookId}`, { method: 'DELETE' }) }
+export function listStudentAttendance(applicationId) { return apiRequest(`/api/student/applications/${applicationId}/attendance`) }
+export function studentCheckIn(applicationId, payload = {}) { return apiRequest(`/api/student/applications/${applicationId}/attendance/check-in`, { method: 'POST', body: JSON.stringify(payload) }) }
+export function studentCheckOut(applicationId, payload = {}) { return apiRequest(`/api/student/applications/${applicationId}/attendance/check-out`, { method: 'POST', body: JSON.stringify(payload) }) }
+export function getStudentEvaluation(applicationId) { return apiRequest(`/api/student/applications/${applicationId}/evaluation`) }
+
+export function listMentorNotifications() { return apiRequest('/api/mentor/notifications') }
+export function listMentorLogbooks(params = {}) {
+  if (params.applicationId) return apiRequest(`/api/mentor/applications/${params.applicationId}/logbooks?${new URLSearchParams(params)}`)
+  return apiRequest(`/api/mentor/logbooks?${new URLSearchParams(params)}`)
+}
+export function reviewMentorLogbook(applicationId, logbookId, payload) { return apiRequest(`/api/mentor/applications/${applicationId}/logbooks/${logbookId}/review`, { method: 'PATCH', body: JSON.stringify(payload) }) }
+export function listMentorAttendance(applicationId) { return apiRequest(`/api/mentor/applications/${applicationId}/attendance`) }
+export function upsertMentorAttendance(applicationId, payload) { return apiRequest(`/api/mentor/applications/${applicationId}/attendance`, { method: 'POST', body: JSON.stringify(payload) }) }
+export function upsertMentorEvaluation(applicationId, payload) { return apiRequest(`/api/mentor/applications/${applicationId}/evaluation`, { method: 'PUT', body: JSON.stringify(payload) }) }
+export function getMentorEvaluation(applicationId) { return apiRequest(`/api/mentor/applications/${applicationId}/evaluation`) }
+export function reviewMentorDocument(applicationId, documentId, payload) { return apiRequest(`/api/mentor/applications/${applicationId}/documents/${documentId}/review`, { method: 'PATCH', body: JSON.stringify(payload) }) }
+
+export function getAdminDashboard() { return apiRequest('/api/admin/dashboard') }
+export function listAdminAttendance(params = {}) { return apiRequest(`/api/admin/attendance?${new URLSearchParams(params)}`) }
+export function correctAdminAttendance(applicationId, payload) { return apiRequest(`/api/admin/attendance/${applicationId}`, { method: 'PATCH', body: JSON.stringify(payload) }) }
+export function sendAdminNotification(payload) { return apiRequest('/api/admin/notifications', { method: 'POST', body: JSON.stringify(payload) }) }
+export function exportReportUrl(role, type, params = {}) {
+  const qs = new URLSearchParams({ ...params, format: params.format || 'csv' })
+  return `/api/${role}/reports/${type}?${qs}`
+}
