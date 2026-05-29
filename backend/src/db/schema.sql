@@ -87,6 +87,8 @@ CREATE TABLE IF NOT EXISTS notifications (
   user_id INT NOT NULL,
   title VARCHAR(190) NOT NULL,
   message TEXT NOT NULL,
+  related_type VARCHAR(50) NULL,
+  related_id INT NULL,
   read_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -117,4 +119,96 @@ CREATE TABLE IF NOT EXISTS sessions (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_sessions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   INDEX idx_sessions_user_expires (user_id, expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE internship_applications MODIFY status ENUM('draft', 'pending', 'verified', 'accepted', 'rejected', 'needs_revision') NOT NULL DEFAULT 'draft';
+CREATE TABLE IF NOT EXISTS logbook_entries (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  application_id INT NOT NULL,
+  user_id INT NOT NULL,
+  mentor_id INT NULL,
+  activity_date DATE NOT NULL,
+  title VARCHAR(190) NOT NULL,
+  description TEXT NOT NULL,
+  output TEXT NOT NULL DEFAULT '',
+  supporting_file_name VARCHAR(255) NOT NULL DEFAULT '',
+  supporting_file_path VARCHAR(500) NOT NULL DEFAULT '',
+  supporting_file_url VARCHAR(500) NOT NULL DEFAULT '',
+  status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+  feedback TEXT NOT NULL DEFAULT '',
+  reviewed_by INT NULL,
+  reviewed_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_logbook_application FOREIGN KEY (application_id) REFERENCES internship_applications(id) ON DELETE CASCADE,
+  CONSTRAINT fk_logbook_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_logbook_mentor FOREIGN KEY (mentor_id) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT fk_logbook_reviewer FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_logbook_application_status (application_id, status),
+  INDEX idx_logbook_mentor_status (mentor_id, status),
+  INDEX idx_logbook_activity_date (activity_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS attendance_records (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  application_id INT NOT NULL,
+  user_id INT NOT NULL,
+  mentor_id INT NULL,
+  attendance_date DATE NOT NULL,
+  check_in_at DATETIME NULL,
+  check_out_at DATETIME NULL,
+  status ENUM('present', 'late', 'sick', 'permit', 'absent') NOT NULL DEFAULT 'present',
+  proof_type VARCHAR(50) NOT NULL DEFAULT '',
+  proof_file_name VARCHAR(255) NOT NULL DEFAULT '',
+  proof_file_path VARCHAR(500) NOT NULL DEFAULT '',
+  proof_file_url VARCHAR(500) NOT NULL DEFAULT '',
+  notes TEXT NOT NULL DEFAULT '',
+  corrected_by INT NULL,
+  created_by INT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY unique_attendance_application_date (application_id, attendance_date),
+  CONSTRAINT fk_attendance_application FOREIGN KEY (application_id) REFERENCES internship_applications(id) ON DELETE CASCADE,
+  CONSTRAINT fk_attendance_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_attendance_mentor FOREIGN KEY (mentor_id) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT fk_attendance_corrector FOREIGN KEY (corrected_by) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT fk_attendance_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_attendance_user_date (user_id, attendance_date),
+  INDEX idx_attendance_mentor_date (mentor_id, attendance_date),
+  INDEX idx_attendance_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS evaluations (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  application_id INT NOT NULL UNIQUE,
+  user_id INT NOT NULL,
+  mentor_id INT NOT NULL,
+  performance_score DECIMAL(5,2) NOT NULL DEFAULT 0,
+  soft_skills_score DECIMAL(5,2) NOT NULL DEFAULT 0,
+  logbook_score DECIMAL(5,2) NOT NULL DEFAULT 0,
+  final_score DECIMAL(5,2) NOT NULL DEFAULT 0,
+  grade VARCHAR(5) NOT NULL DEFAULT 'D',
+  feedback TEXT NOT NULL DEFAULT '',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_evaluations_application FOREIGN KEY (application_id) REFERENCES internship_applications(id) ON DELETE CASCADE,
+  CONSTRAINT fk_evaluations_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_evaluations_mentor FOREIGN KEY (mentor_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  actor_id INT NULL,
+  action VARCHAR(100) NOT NULL,
+  entity_type VARCHAR(60) NOT NULL,
+  entity_id INT NULL,
+  application_id INT NULL,
+  before_json JSON NULL,
+  after_json JSON NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_audit_actor FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT fk_audit_application FOREIGN KEY (application_id) REFERENCES internship_applications(id) ON DELETE SET NULL,
+  INDEX idx_audit_application (application_id, created_at),
+  INDEX idx_audit_entity (entity_type, entity_id),
+  INDEX idx_audit_actor (actor_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

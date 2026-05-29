@@ -248,9 +248,9 @@ export async function listAdminApplications({ status = '', bidangMagang = '', se
   if (status) { where.push('a.status = ?'); params.push(status) }
   if (bidangMagang) { where.push('a.bidang_magang = ?'); params.push(bidangMagang) }
   if (search) {
-    where.push('(LOWER(p.nama_lengkap) LIKE ? OR LOWER(p.nim) LIKE ? OR LOWER(u.email) LIKE ?)')
+    where.push('(LOWER(p.nama_lengkap) LIKE ? OR LOWER(p.nim) LIKE ? OR LOWER(u.email) LIKE ? OR LOWER(a.bidang_magang) LIKE ?)')
     const term = `%${search.toLowerCase()}%`
-    params.push(term, term, term)
+    params.push(term, term, term, term)
   }
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
   const [countRows] = await pool.query(
